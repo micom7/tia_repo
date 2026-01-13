@@ -1,4 +1,4 @@
-// FC_ManualMechCmdHandler.scl
+// File: FC_ManualMechCmdHandler.scl
 FUNCTION "FC_ManualMechCmdHandler" : VOID
 { S7_Optimized_Access := 'TRUE' }
 
@@ -7,63 +7,68 @@ VAR_INPUT
 END_VAR
 
 VAR_TEMP
-    i        : INT;
-    commitIn : UDINT;
-    allowed  : BOOL;
-    ok       : BOOL;
-    rej      : USINT;
-    isLocal  : BOOL;
+    i          : INT;
+    commitIn   : UDINT;
+    allowed    : BOOL;
+    ok         : BOOL;
+    rej        : USINT;
+    isLocal    : BOOL;
+    isMapped   : BOOL;
 END_VAR
 
 BEGIN
     FOR i := 0 TO 255 DO
-
-        // ---- ManualAllowed для SCADA UI ----
-        isLocal :=
-            LocalManualGlobal OR "DB_Mechs".Mechs[i].LocalManual;
-
-        allowed :=
-            ("DB_Mechs".Mechs[i].OwnerCur = "DB_Const".OWNER_NONE)
-            AND (NOT isLocal)
-            AND ("DB_Mechs".Mechs[i].Enable_OK);
-
-        "DB_PlcToScada_ManualMechStatus".ManualAllowed[i] := allowed;
-
-        // ---- Новий commit? ----
-        commitIn := "DB_ScadaToPlc_ManualMechCmd".CmdBySlot[i].Commit;
-
-        IF commitIn = "DB_Plc_ManualMechAux".LastCommitSeen[i] THEN
-            CONTINUE;
+        
+        // ===== 1) Перевірка мапінгу слоту =====
+        isMapped := ("DB_Mechs".Mechs[i].DeviceType <> "DB_Const".TYPE_NONE)
+                    AND ("DB_Mechs".Mechs[i].TypedIndex <> UINT#16#FFFF);
+        
+        // ===== 2) Обчислення ManualAllowed =====
+        isLocal := LocalManualGlobal OR "DB_Mechs".Mechs[i].LocalManual;
+        
+        IF isMapped THEN
+            allowed := ("DB_Mechs".Mechs[i].OwnerCur = "DB_Const".OWNER_NONE)
+                       AND (NOT isLocal)
+                       AND ("DB_Mechs".Mechs[i].Enable_OK);
+        ELSE
+            allowed := FALSE;
         END_IF;
-
-        // зафіксували що побачили цей commit
+        
+        "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].ManualAllowed := allowed;
+        "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].CurrentOwner  := "DB_Mechs".Mechs[i].OwnerCur;
+        "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].CurrentStatus := "DB_Mechs".Mechs[i].Status;
+        
+        // ===== 3) Перевірка нового commit =====
+        commitIn := "DB_ScadaToPlc_ManualMechCmd".CmdBySlot[i].Commit;
+        
+        IF commitIn = "DB_Plc_ManualMechAux".LastCommitSeen[i] THEN
+            CONTINUE;  // немає нових команд
+        END_IF;
+        
+        // Зафіксувати commit
         "DB_Plc_ManualMechAux".LastCommitSeen[i] := commitIn;
-
-        // ---- default reject ----
-        rej := 0;
-
-        // 1) слот має бути замаплений
-        IF ("DB_Mechs".Mechs[i].DeviceType = "DB_Const".TYPE_NONE)
-           OR ("DB_Mechs".Mechs[i].TypedIndex = UINT#16#FFFF) THEN
-            rej := 1; // SLOT_NOT_MAPPED
-
-        // 2) локал-мануал => PLC не керує
+        
+        // ===== 4) Валідація =====
+        rej := "DB_Const".MAN_REJ_OK;
+        
+        IF NOT isMapped THEN
+            rej := "DB_Const".MAN_REJ_SLOT_UNMAPPED;
+            
         ELSIF isLocal THEN
-            rej := 2; // LOCAL_MANUAL
-
-        // 3) не дозволено
+            rej := "DB_Const".MAN_REJ_LOCAL_MANUAL;
+            
         ELSIF NOT "DB_Mechs".Mechs[i].Enable_OK THEN
-            rej := 3; // NOT_ENABLED
-
-        // 4) owner зайнятий (manual тільки коли NONE або наш SCADA)
+            rej := "DB_Const".MAN_REJ_NOT_ENABLED;
+            
         ELSIF ("DB_Mechs".Mechs[i].OwnerCur <> "DB_Const".OWNER_NONE)
               AND ("DB_Mechs".Mechs[i].OwnerCur <> "DB_Const".OWNER_SCADA) THEN
-            rej := 4; // OWNER_BUSY
+            rej := "DB_Const".MAN_REJ_OWNER_BUSY;
         END_IF;
-
-        // ---- ReleaseOwner ----
-        IF (rej = 0) AND "DB_ScadaToPlc_ManualMechCmd".CmdBySlot[i].ReleaseOwner THEN
-
+        
+        // ===== 5) Обробка ReleaseOwner =====
+        IF (rej = "DB_Const".MAN_REJ_OK) 
+           AND "DB_ScadaToPlc_ManualMechCmd".CmdBySlot[i].ReleaseOwner THEN
+            
             ok := "FC_ArbiterMech"(
                 LocalManualGlobal := LocalManualGlobal,
                 OwnerReq          := "DB_Const".OWNER_SCADA,
@@ -72,24 +77,32 @@ BEGIN
                 ReqParam1         := 0,
                 ReqForce          := 0,
                 ReleaseOwner      := TRUE,
-                LockOnly          := TRUE,
-                M                := "DB_Mechs".Mechs[i]
+                LockOnly          := FALSE,
+                M                 := "DB_Mechs".Mechs[i]
             );
-
-            "DB_PlcToScada_ManualMechStatus".AckOk[i]      := ok;
-            "DB_PlcToScada_ManualMechStatus".RejectCode[i] := SEL(ok, USINT#4, USINT#0);
-            "DB_PlcToScada_ManualMechStatus".AckCommit[i]  := commitIn;
+            
+            IF ok THEN
+                "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].AckOk := TRUE;
+                "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].RejectCode := "DB_Const".MAN_REJ_OK;
+            ELSE
+                "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].AckOk := FALSE;
+                "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].RejectCode := "DB_Const".MAN_REJ_ARBITER_FAIL;
+            END_IF;
+            
+            "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].AckCommit := commitIn;
+            
             CONTINUE;
         END_IF;
-
-        // ---- Команда ----
-        IF rej = 0 THEN
+        
+        // ===== 6) Валідація команди =====
+        IF rej = "DB_Const".MAN_REJ_OK THEN
             IF "DB_ScadaToPlc_ManualMechCmd".CmdBySlot[i].Cmd = "DB_Const".CMD_NONE THEN
-                rej := 5; // CMD_INVALID
+                rej := "DB_Const".MAN_REJ_CMD_INVALID;
             END_IF;
         END_IF;
-
-        IF rej = 0 THEN
+        
+        // ===== 7) Виконання команди =====
+        IF rej = "DB_Const".MAN_REJ_OK THEN
             ok := "FC_ArbiterMech"(
                 LocalManualGlobal := LocalManualGlobal,
                 OwnerReq          := "DB_Const".OWNER_SCADA,
@@ -99,18 +112,25 @@ BEGIN
                 ReqForce          := "DB_ScadaToPlc_ManualMechCmd".CmdBySlot[i].Force_Code,
                 ReleaseOwner      := FALSE,
                 LockOnly          := FALSE,
-                M                := "DB_Mechs".Mechs[i]
+                M                 := "DB_Mechs".Mechs[i]
             );
-
-            "DB_PlcToScada_ManualMechStatus".AckOk[i]      := ok;
-            "DB_PlcToScada_ManualMechStatus".RejectCode[i] := SEL(ok, USINT#4, USINT#0);
+            
+            IF ok THEN
+                "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].AckOk := TRUE;
+                "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].RejectCode := "DB_Const".MAN_REJ_OK;
+            ELSE
+                "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].AckOk := FALSE;
+                "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].RejectCode := "DB_Const".MAN_REJ_ARBITER_FAIL;
+            END_IF;
         ELSE
-            "DB_PlcToScada_ManualMechStatus".AckOk[i]      := FALSE;
-            "DB_PlcToScada_ManualMechStatus".RejectCode[i] := rej;
+            // Команда відхилена на етапі валідації
+            "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].AckOk := FALSE;
+            "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].RejectCode := rej;
         END_IF;
-
-        "DB_PlcToScada_ManualMechStatus".AckCommit[i] := commitIn;
-
+        
+        "DB_PlcToScada_ManualMechStatus".StatusBySlot[i].AckCommit := commitIn;
+        "DB_Plc_ManualMechAux".LastResultCode[i] := rej;
+        
     END_FOR;
-
+    
 END_FUNCTION

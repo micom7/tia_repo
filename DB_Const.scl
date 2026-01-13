@@ -21,23 +21,29 @@ VAR
     TYPE_VALVE3P: USINT := 5;
 
     TimeoutMs_Redler_Start : DINT := 5000;
-	TimeoutMs_Redler_SpeedPause: DINT := 2000;
-	
+    TimeoutMs_Redler_SpeedPause: DINT := 2000;
+    
     STS_IDLE     : UINT := 0;
     STS_STARTING : UINT := 1;
     STS_RUNNING  : UINT := 2;
     STS_STOPPING : UINT := 3;
     STS_FAULT    : UINT := 4;
-	STS_DISABLED : UINT := 10;
-	STS_LOCAL    : UINT := 11;
+    STS_DISABLED : UINT := 10;
+    STS_LOCAL    : UINT := 11;
 
-
-  // ==========================================================================
-  // OWNER_* 
-  // ==========================================================================
-  OWNER_NONE  : USINT := 0;
-  OWNER_SCADA : USINT := 1;
-  OWNER_ROUTE : USINT := 2;
+    // OWNER_* 
+    OWNER_NONE  : USINT := 0;
+    OWNER_SCADA : USINT := 1;
+    OWNER_ROUTE : USINT := 2;
+    
+    // Manual Control Reject Codes (НОВІ КОНСТАНТИ)
+    MAN_REJ_OK            : USINT := 0;
+    MAN_REJ_SLOT_UNMAPPED : USINT := 1;
+    MAN_REJ_LOCAL_MANUAL  : USINT := 2;
+    MAN_REJ_NOT_ENABLED   : USINT := 3;
+    MAN_REJ_OWNER_BUSY    : USINT := 4;
+    MAN_REJ_CMD_INVALID   : USINT := 5;
+    MAN_REJ_ARBITER_FAIL  : USINT := 6;
 END_VAR
 
 END_DATA_BLOCK

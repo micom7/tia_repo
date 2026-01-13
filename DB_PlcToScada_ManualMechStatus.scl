@@ -1,0 +1,11 @@
+// File: DB_PlcToScada_ManualMechStatus.scl
+DATA_BLOCK "DB_PlcToScada_ManualMechStatus"
+{ S7_Optimized_Access := 'TRUE' }
+
+VAR
+    // Статус для кожного слоту
+    StatusBySlot : ARRAY[0..255] OF "UDT_ManualMechStatus";
+END_VAR
+
+BEGIN
+END_DATA_BLOCK
