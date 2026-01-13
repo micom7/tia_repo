@@ -1,0 +1,21 @@
+DATA_BLOCK "DB_ScadaToPlc_RouteCmd"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+VAR
+  // ---------------------------
+  // HDR_* : заголовок буферів
+  // ---------------------------
+  HDR_ActiveBuf : USINT; // 0 або 1 (який буфер активний)
+  HDR_Commit    : UDINT; // лічильник коммітів від SCADA
+
+  // ---------------------------
+  // BUF0_* : буфер 0 (SCADA пише сюди, коли ActiveBuf=1)
+  // BUF1_* : буфер 1 (SCADA пише сюди, коли ActiveBuf=0)
+  // ---------------------------
+  BUF0_Routes : ARRAY[1..12] OF "UDT_RouteCmd";
+  BUF1_Routes : ARRAY[1..12] OF "UDT_RouteCmd";
+END_VAR
+
+BEGIN
+END_DATA_BLOCK

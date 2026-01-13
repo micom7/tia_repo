@@ -1,0 +1,51 @@
+FUNCTION "FC_DeviceRunner" : VOID
+{ S7_Optimized_Access := 'TRUE' }
+
+VAR_IN_OUT
+    // "Шина" базових механізмів (слоти). Її використовують Arbiter/RouteFSM/SCADA.
+    Mechs  : ARRAY[*] OF "UDT_BaseMechanism";
+
+    // Типізовані екземпляри (тільки специфіка)
+    Redler : ARRAY[*] OF "UDT_Redler";
+END_VAR
+
+VAR_TEMP
+    slotLo : DINT;
+    slotHi : DINT;
+    rLo    : DINT;
+    rHi    : DINT;
+
+    slot   : DINT;
+    idx    : DINT;
+END_VAR
+
+BEGIN
+    // Межі масивів
+    slotLo := LOWER_BOUND(ARR := Mechs,  DIM := UDINT#1);
+    slotHi := UPPER_BOUND(ARR := Mechs,  DIM := UDINT#1);
+
+    rLo := LOWER_BOUND(ARR := Redler, DIM := UDINT#1);
+    rHi := UPPER_BOUND(ARR := Redler, DIM := UDINT#1);
+
+    // Проходимо по слотах і викликаємо типізовані механізми по мапінгу DeviceType/TypedIndex
+    FOR slot := slotLo TO slotHi DO
+
+        // ===== REDLER =====
+        IF Mechs[DINT_TO_INT(slot)].DeviceType = "DB_Const".TYPE_REDLER THEN
+
+            idx := UINT_TO_DINT(Mechs[DINT_TO_INT(slot)].TypedIndex);
+
+            // Активний слот, якщо TypedIndex потрапляє в межі масиву Redler[]
+            IF (idx >= rLo) AND (idx <= rHi) THEN
+                "FC_Redler"(
+                    R := Redler[DINT_TO_INT(idx)],
+                    B := Mechs[DINT_TO_INT(slot)]
+                );
+            END_IF;
+
+        END_IF;
+
+        // Інші типи (норія/шнек/клапан...) додаються тут аналогічними IF.
+    END_FOR;
+
+END_FUNCTION

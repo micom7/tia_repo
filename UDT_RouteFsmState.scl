@@ -1,0 +1,10 @@
+TYPE "UDT_RouteFsmState"
+{ S7_Optimized_Access := 'TRUE' }
+STRUCT
+  RF_State        : UINT;   // ROUTE_STS_*
+  RF_ResultCode   : UINT;   // REJ_* / ABRT_* / DONE_* (фіксуємо у фіналі)
+  RF_ActiveStep   : USINT;  // індекс поточного кроку
+  RF_StepSts      : USINT;  // STEP_STS_* (IDLE/WORK/DONE/TIMEOUT)
+  RF_AbortLatched : UINT;   // latched abort code для STOPPING
+END_STRUCT
+END_TYPE

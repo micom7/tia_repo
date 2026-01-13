@@ -1,0 +1,14 @@
+DATA_BLOCK DB_Mechs
+{ S7_Optimized_Access := 'TRUE' }
+
+
+VAR
+	Mechs : ARRAY [0..255] OF "UDT_BaseMechanism";
+    // Один елемент = один редлер (slot)
+    // Розмір масиву = кількість редлерів у проєкті
+    Redler : ARRAY [0..1] OF UDT_Redler;
+END_VAR
+
+BEGIN
+    // Ініціалізація не потрібна
+END_DATA_BLOCK

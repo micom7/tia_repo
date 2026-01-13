@@ -1,0 +1,9 @@
+TYPE "UDT_RouteStep"
+{ S7_Optimized_Access := 'TRUE' }
+STRUCT
+  RS_Slot      : UINT;   // index в Mechs[]
+  RS_Action    : USINT;  // RS_ACT_START / RS_ACT_STOP
+  RS_Wait      : USINT;  // RS_WAIT_RUNNING / RS_WAIT_STOPPED
+  RS_TimeoutMs : DINT;   // 0 = без таймауту
+END_STRUCT
+END_TYPE

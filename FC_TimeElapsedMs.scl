@@ -1,0 +1,30 @@
+FUNCTION FC_TimeElapsedMs : BOOL
+{ S7_Optimized_Access := 'TRUE' }
+VAR_INPUT
+    StartTck  : DINT;   // мітка старту
+    TimeoutMs : DINT;   // допустимий час, мс
+END_VAR
+VAR_OUTPUT
+    ElapsedMs : DINT;   // пройшло, мс
+    NowTck    : DINT;   // (опційно) повертаємо поточний тик
+END_VAR
+VAR_TEMP
+    DiffMs : DINT;
+END_VAR
+
+BEGIN
+    NowTck := TIME_TCK();
+
+    IF NowTck >= StartTck THEN
+        DiffMs := NowTck - StartTck;
+    ELSE
+        DiffMs := (2147483647 - StartTck) + NowTck + 1;
+    END_IF;
+
+    IF DiffMs < 0 THEN
+        DiffMs := 0;
+    END_IF;
+
+    ElapsedMs := DiffMs;
+    FC_TimeElapsedMs := (ElapsedMs >= TimeoutMs);
+END_FUNCTION

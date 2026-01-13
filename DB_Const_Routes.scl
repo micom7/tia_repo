@@ -1,0 +1,81 @@
+DATA_BLOCK "DB_Const_Routes"
+{ S7_Optimized_Access := 'TRUE' }
+
+// ============================================================================
+// DB_Const_Routes (фрагмент): Константи для Route FSM / Steps / ResultCodes
+// ============================================================================
+
+VAR
+  // ==========================================================================
+  // ROUTE_STS_*  (Route FSM States)
+  // ==========================================================================
+  ROUTE_STS_IDLE       : UINT := 0;
+  ROUTE_STS_VALIDATING : UINT := 10;
+  ROUTE_STS_LOCKING    : UINT := 20;
+  ROUTE_STS_STARTING   : UINT := 30;
+  ROUTE_STS_RUNNING    : UINT := 40;
+  ROUTE_STS_STOPPING   : UINT := 50;
+
+  ROUTE_STS_DONE       : UINT := 1000; // фінал
+  ROUTE_STS_REJECTED   : UINT := 1100; // фінал
+  ROUTE_STS_ABORTED    : UINT := 1200; // фінал
+
+  // ==========================================================================
+  // RT_CMD_*  (SCADA route intent/command)
+  // ==========================================================================
+  RT_CMD_NONE      : USINT := 0;
+  RT_CMD_START     : USINT := 1;
+  RT_CMD_STOP_OP   : USINT := 2;  // контрольований STOP маршруту
+  RT_CMD_STOP_SAFE : USINT := 3;  // safety-stop зі SCADA (йде в OR до GlobalSafetyStop)
+
+  // ==========================================================================
+  // RS_ACT_*  (Step action)
+  // ==========================================================================
+  RS_ACT_START : USINT := 1;
+  RS_ACT_STOP  : USINT := 2;
+
+  // ==========================================================================
+  // RS_WAIT_* (Step completion condition based on Mech.Status only)
+  // ==========================================================================
+  RS_WAIT_RUNNING : USINT := 1; // step done when Status == STS_RUNNING
+  RS_WAIT_STOPPED : USINT := 2; // step done when Status == STS_IDLE/STOPPED
+
+  // ==========================================================================
+  // STEP_STS_* (FSM internal step execution state)
+  // ==========================================================================
+  STEP_STS_IDLE    : USINT := 0;
+  STEP_STS_WORK    : USINT := 1;
+  STEP_STS_DONE    : USINT := 2;
+  STEP_STS_TIMEOUT : USINT := 3; // (опційно, якщо використаєш TimeoutMs)
+
+  // ==========================================================================
+  // ROUTE_DONE_* (Normal completion result codes)
+  // ==========================================================================
+  ROUTE_DONE_OK : UINT := 1;
+
+  // ==========================================================================
+  // ROUTE_REJ_*  (Reject result codes)
+  // ==========================================================================
+  ROUTE_REJ_BY_SAFETY        : UINT := 100;
+  ROUTE_REJ_BY_OWNER         : UINT := 101;
+  ROUTE_REJ_BY_CONTRACT      : UINT := 102;
+  ROUTE_REJ_NOT_READY        : UINT := 103;
+  ROUTE_REJ_DUPLICATE_START  : UINT := 104;
+
+  // ==========================================================================
+  // ROUTE_ABRT_* (Abort result codes)
+  // ==========================================================================
+  ROUTE_ABRT_BY_OPERATOR       : UINT := 200;
+  ROUTE_ABRT_BY_SAFETY         : UINT := 201;
+  ROUTE_ABRT_BY_LOCAL          : UINT := 202;
+  ROUTE_ABRT_BY_FAULT          : UINT := 203;
+  ROUTE_ABRT_STARTING_FAILED   : UINT := 204;
+
+
+
+  // ==========================================================================
+  // LIMITS_* (Project limits)
+  // ==========================================================================
+  LIMITS_MAX_ROUTES : USINT := 12;
+  LIMITS_MAX_STEPS  : USINT := 64;
+END_VAR

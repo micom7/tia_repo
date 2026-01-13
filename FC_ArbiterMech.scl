@@ -1,0 +1,90 @@
+FUNCTION "FC_ArbiterMech" : BOOL
+{ S7_Optimized_Access := 'TRUE' }
+
+VAR_INPUT
+    LocalManualGlobal : BOOL;
+
+    OwnerReq   : USINT;   // DB_Const.OWNER_*
+    OwnerReqId : UINT;
+
+    ReqCmd     : USINT;   // DB_Const.CMD_*
+    ReqParam1  : INT;
+    ReqForce   : INT;
+
+    ReleaseOwner : BOOL;  // TRUE = звільнити ownership
+    LockOnly     : BOOL;  // TRUE = тільки lock/verify, без запису Cmd
+END_VAR
+
+VAR_IN_OUT
+    M : "UDT_BaseMechanism";
+END_VAR
+
+VAR_TEMP
+    okOwner   : BOOL;
+    isLocal   : BOOL;
+    allowExec : BOOL;
+END_VAR
+
+BEGIN
+
+	// Якщо слот не замаплений — не даємо ні lock, ні команд
+	IF (M.DeviceType = "DB_Const".TYPE_NONE) OR (M.TypedIndex = UINT#16#FFFF) THEN
+		FC_ArbiterMech := FALSE;
+		RETURN;
+	END_IF;
+
+    allowExec := TRUE;
+
+    // Local manual => PLC не керує і не “бронює”
+    isLocal := LocalManualGlobal OR M.LocalManual;
+    IF isLocal THEN
+        allowExec := FALSE;
+    END_IF;
+
+    // ---------------- ReleaseOwner ----------------
+    IF allowExec AND ReleaseOwner THEN
+        okOwner := (M.OwnerCur = OwnerReq) AND (M.OwnerCurId = OwnerReqId);
+
+        IF NOT okOwner THEN
+            allowExec := FALSE;
+        END_IF;
+
+        IF allowExec THEN
+            M.OwnerCur   := "DB_Const".OWNER_NONE;
+            M.OwnerCurId := 0;
+        END_IF;
+
+    // ---------------- LockOnly or Command ----------------
+    ELSIF allowExec THEN
+
+        // Якщо owner NONE — можемо взяти
+        IF (M.OwnerCur = "DB_Const".OWNER_NONE)
+           AND (OwnerReq <> "DB_Const".OWNER_NONE) THEN
+            M.OwnerCur   := OwnerReq;
+            M.OwnerCurId := OwnerReqId;
+        END_IF;
+
+        // Перевірка owner
+        okOwner := (M.OwnerCur = OwnerReq) AND (M.OwnerCurId = OwnerReqId);
+        IF NOT okOwner THEN
+            allowExec := FALSE;
+        END_IF;
+
+        // Якщо це не LockOnly — тоді ще й команда
+        IF allowExec AND (NOT LockOnly) THEN
+            IF ReqCmd = "DB_Const".CMD_NONE THEN
+                allowExec := FALSE;
+            END_IF;
+
+            IF allowExec THEN
+                M.Cmd        := ReqCmd;
+                M.CmdParam1  := ReqParam1;
+                M.Force_Code := ReqForce;
+            END_IF;
+        END_IF;
+
+    END_IF;
+
+    FC_ArbiterMech := allowExec;
+
+END_FUNCTION

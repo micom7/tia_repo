@@ -1,0 +1,8 @@
+TYPE "UDT_RouteCmd"
+{ S7_Optimized_Access := 'TRUE' }
+STRUCT
+  RC_Cmd       : USINT;  // RT_CMD_NONE / RT_CMD_START / RT_CMD_STOP_OP / RT_CMD_STOP_SAFE
+  RC_StepCount : USINT;  // 0..MAX_STEPS
+  RC_Steps     : ARRAY[0..63] OF "UDT_RouteStep";  // MAX_STEPS=64 як стартовий ліміт
+END_STRUCT
+END_TYPE

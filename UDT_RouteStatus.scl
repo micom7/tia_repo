@@ -1,0 +1,9 @@
+TYPE "UDT_RouteStatus"
+{ S7_Optimized_Access := 'TRUE' }
+STRUCT
+  RS_State      : UINT;   // ROUTE_STS_*
+  RS_ResultCode : UINT;   // REJ_* / ABRT_* / DONE_*
+  RS_ActiveStep : USINT;  // поточний крок
+  RS_StepSts    : USINT;  // STEP_STS_*
+END_STRUCT
+END_TYPE

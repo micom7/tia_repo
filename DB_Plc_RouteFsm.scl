@@ -1,0 +1,10 @@
+DATA_BLOCK "DB_Plc_RouteFsm"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+VAR
+  RoutesFsm : ARRAY[1..12] OF "UDT_RouteFsmState";
+END_VAR
+
+BEGIN
+END_DATA_BLOCK

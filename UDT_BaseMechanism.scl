@@ -1,0 +1,31 @@
+TYPE "UDT_BaseMechanism" :
+STRUCT
+
+    // ===== 0) Мапінг слоту (slot -> typed array) =====
+    DeviceType : USINT;  // TYPE_REDLER / TYPE_...
+    TypedIndex : UINT;   // індекс у DB_Mechs.<Type>[TypedIndex]
+
+    // ===== Дозволи / режими =====
+    Enable_OK    : BOOL;    // дозвіл на роботу (пермітив). 1=OK
+    LocalManual  : BOOL;    // 1=локальне ручне керування (ПЛК не керує)
+
+
+
+    // ===== Команди (від арбітра) =====
+    Cmd          : USINT;   // команда (рівнева)
+    CmdParam1    : INT;     // параметр команди (рівневий)
+
+    Force_Code   : INT;     // код форсування захистів (бітова маска)
+
+    // ===== Власник (арбітраж) =====
+    OwnerCur     : USINT;   // 0 none, 1 scada, 2 route, ...
+    OwnerCurId   : UINT;    // наприклад RouteId
+
+    // ===== Діагностика команд =====
+    LastCmd      : USINT;   // остання команда (заповнює МЕХАНІЗМ)
+
+    // ===== Стан та аварії (заповнює МЕХАНІЗМ) =====
+    FLTCode      : UINT;    // код помилки (0 — відсутня)
+    Status       : UINT;    // поточний стан
+END_STRUCT;
+END_TYPE

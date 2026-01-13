@@ -1,0 +1,14 @@
+DATA_BLOCK "DB_PlcToScada_RouteStatus"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+VAR
+  // PLC підтверджує, який commit уже “побачив/взяв”
+  ACK_CommitApplied : UDINT;
+
+  // Статуси 12 маршрутів
+  RoutesSts : ARRAY[1..12] OF "UDT_RouteStatus";
+END_VAR
+
+BEGIN
+END_DATA_BLOCK

@@ -1,0 +1,8 @@
+TYPE "UDT_RouteSlot"
+{ S7_Optimized_Access := 'TRUE' }
+STRUCT
+  Cmd    : "UDT_RouteCmd";     // SCADA → PLC
+  State  : "UDT_RouteFsmState"; // внутрішній стан FSM
+  Status : "UDT_RouteStatus";  // PLC → SCADA
+END_STRUCT
+END_TYPE

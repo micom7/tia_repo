@@ -1,0 +1,10 @@
+// File: UDT_ManualMechCmdItem.scl
+TYPE "UDT_ManualMechCmdItem" :
+STRUCT
+    Commit      : UDINT;  // SCADA інкрементує після заповнення полів
+    Cmd         : USINT;  // DB_Const.CMD_*
+    Param1      : INT;    // параметр
+    Force_Code  : INT;    // бітова маска форсування (як у механізмі)
+    ReleaseOwner: BOOL;   // TRUE => відпустити OWNER_SCADA (якщо він наш)
+END_STRUCT;
+END_TYPE

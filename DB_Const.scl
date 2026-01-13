@@ -1,0 +1,43 @@
+DATA_BLOCK "DB_Const"
+{ S7_Optimized_Access := 'TRUE' }
+
+VAR
+    CMD_NONE  : USINT := 0;
+    CMD_START : USINT := 1;
+    CMD_STOP  : USINT := 2;
+    CMD_RESET : USINT := 3;
+
+    FLT_NONE      : UINT := 0;
+    FLT_OVERFLOW  : UINT := 10;
+    FLT_BREAKER   : UINT := 11;
+    FLT_NO_RUNFB  : UINT := 12;
+    FLT_INTERLOCK : UINT := 13;
+
+    TYPE_NONE   : USINT := 0;
+    TYPE_NORIA  : USINT := 1;
+    TYPE_REDLER : USINT := 2;
+    TYPE_GATE2P : USINT := 3;
+    TYPE_FAN    : USINT := 4;
+    TYPE_VALVE3P: USINT := 5;
+
+    TimeoutMs_Redler_Start : DINT := 5000;
+	TimeoutMs_Redler_SpeedPause: DINT := 2000;
+	
+    STS_IDLE     : UINT := 0;
+    STS_STARTING : UINT := 1;
+    STS_RUNNING  : UINT := 2;
+    STS_STOPPING : UINT := 3;
+    STS_FAULT    : UINT := 4;
+	STS_DISABLED : UINT := 10;
+	STS_LOCAL    : UINT := 11;
+
+
+  // ==========================================================================
+  // OWNER_* 
+  // ==========================================================================
+  OWNER_NONE  : USINT := 0;
+  OWNER_SCADA : USINT := 1;
+  OWNER_ROUTE : USINT := 2;
+END_VAR
+
+END_DATA_BLOCK

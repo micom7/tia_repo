@@ -1,0 +1,11 @@
+// File: DB_Plc_ManualMechAux.scl
+DATA_BLOCK "DB_Plc_ManualMechAux"
+{ S7_Optimized_Access := 'TRUE' }
+
+VAR
+    LastCommitSeen : ARRAY[0..255] OF UDINT;   // PLC зберігає тут останній оброблений commit
+    LastResultCode : ARRAY[0..255] OF USINT;   // 0=OK, інше=reject (для діагностики)
+END_VAR
+
+BEGIN
+END_DATA_BLOCK

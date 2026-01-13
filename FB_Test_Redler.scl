@@ -1,0 +1,178 @@
+FUNCTION_BLOCK "FB_Test_Redler"
+{ S7_Optimized_Access := 'TRUE' }
+
+VAR_INPUT
+    Run    : BOOL;   // TRUE = виконати тест
+    CaseId : INT;    // номер тест-кейсу
+END_VAR
+
+VAR_OUTPUT
+    Passed   : BOOL;
+    Failed   : BOOL;
+    FailMask : DWORD;
+END_VAR
+
+VAR
+    R : "UDT_Redler";
+    now : DINT;
+
+    // Очікування
+    Exp_Status  : INT;
+    Exp_FLTCode : INT;
+    Exp_DO_Run  : BOOL;
+END_VAR
+
+BEGIN
+    Passed := FALSE;
+    Failed := FALSE;
+    FailMask := 0;
+
+    IF NOT Run THEN
+        RETURN;
+    END_IF;
+
+    now := TIME_TCK();
+
+    // ------------------------------------------------------------------
+    // ARRANGE — базовий "здоровий" стан
+    // ------------------------------------------------------------------
+    // Base
+    R.Base.Enable_OK     := TRUE;
+    R.Base.LocalManual   := FALSE;
+    R.Base.DeviceType    := "DB_Const".TYPE_REDLER;   // якщо є така константа; якщо ні — постав 0
+    R.Base.Cmd           := "DB_Const".CMD_NONE;
+    R.Base.CmdParam1     := 0;
+    R.Base.LastCmd       := "DB_Const".CMD_NONE;
+    R.Base.Force_Code    := 0;
+
+    R.Base.OwnerCur      := 123; // перевіримо що скидається
+    R.Base.OwnerCurId    := 456;
+
+    R.Base.Status        := "DB_Const".STS_IDLE;
+    R.Base.FLTCode       := "DB_Const".FLT_NONE;
+
+    // HAL
+    R.DI_Breaker_OK      := TRUE;
+    R.DI_Overflow_OK     := TRUE;
+    R.DI_Speed_OK        := FALSE;
+
+    // Таймінги
+    R.StartMs            := 0;
+    R.SpeedLostMs        := 0;
+
+    // дефолт очікувань
+    Exp_Status  := R.Base.Status;
+    Exp_FLTCode := R.Base.FLTCode;
+    Exp_DO_Run  := FALSE;
+
+    // ------------------------------------------------------------------
+    // TEST CASES
+    // ------------------------------------------------------------------
+    CASE CaseId OF
+
+        // A1: Enable_OK = FALSE → DISABLED
+        1:
+            R.Base.Enable_OK := FALSE;
+            Exp_Status := "DB_Const".STS_DISABLED;
+
+        // A2: LocalManual = TRUE → LOCAL
+        2:
+            R.Base.LocalManual := TRUE;
+            Exp_Status := "DB_Const".STS_LOCAL;
+
+        // B1: RESET скидає FAULT і таймінги
+        3:
+            R.Base.Status  := "DB_Const".STS_FAULT;
+            R.Base.FLTCode := "DB_Const".FLT_OVERFLOW;
+            R.StartMs      := 111;
+            R.SpeedLostMs  := 222;
+            R.Base.Cmd     := "DB_Const".CMD_RESET;
+
+            Exp_Status  := "DB_Const".STS_IDLE;
+            Exp_FLTCode := "DB_Const".FLT_NONE;
+
+        // C1: Breaker аварія
+        4:
+            R.DI_Breaker_OK := FALSE;
+            Exp_Status := "DB_Const".STS_FAULT;
+            Exp_FLTCode := "DB_Const".FLT_BREAKER;
+
+        // C2: Overflow аварія
+        5:
+            R.DI_Overflow_OK := FALSE;
+            Exp_Status := "DB_Const".STS_FAULT;
+            Exp_FLTCode := "DB_Const".FLT_OVERFLOW;
+
+        // C3: Breaker > Overflow
+        6:
+            R.DI_Breaker_OK := FALSE;
+            R.DI_Overflow_OK := FALSE;
+            Exp_Status := "DB_Const".STS_FAULT;
+            Exp_FLTCode := "DB_Const".FLT_BREAKER;
+
+        // C4: Форс BREAKER
+        7:
+            R.DI_Breaker_OK := FALSE;
+            R.Base.Force_Code := 2; // BIT1
+            Exp_Status := "DB_Const".STS_IDLE;
+
+        // D1: START → STARTING
+        8:
+            R.Base.Cmd := "DB_Const".CMD_START;
+            Exp_Status := "DB_Const".STS_STARTING;
+            Exp_DO_Run := TRUE;
+
+        // D2: STARTING + Speed_OK → RUNNING
+        9:
+            R.Base.Status := "DB_Const".STS_STARTING;
+            R.DI_Speed_OK := TRUE;
+            Exp_Status := "DB_Const".STS_RUNNING;
+            Exp_DO_Run := TRUE;
+
+        // D3: START timeout → FLT_NO_RUNFB
+        10:
+            R.Base.Status := "DB_Const".STS_STARTING;
+            R.StartMs := now - "DB_Const".TimeoutMs_Redler_Start - 1;
+            Exp_Status := "DB_Const".STS_FAULT;
+            Exp_FLTCode := "DB_Const".FLT_NO_RUNFB;
+
+        // D4: RUNNING speed lost timeout → FLT_NO_RUNFB
+        11:
+            R.Base.Status := "DB_Const".STS_RUNNING;
+            R.DI_Speed_OK := FALSE;
+            R.SpeedLostMs := now - "DB_Const".TimeoutMs_Redler_SpeedPause - 1;
+            Exp_Status := "DB_Const".STS_FAULT;
+            Exp_FLTCode := "DB_Const".FLT_NO_RUNFB;
+
+        // D5: STOPPING → IDLE
+        12:
+            R.Base.Status := "DB_Const".STS_STOPPING;
+            R.DI_Speed_OK := FALSE;
+            Exp_Status := "DB_Const".STS_IDLE;
+
+        ELSE
+            RETURN;
+    END_CASE;
+
+    // ------------------------------------------------------------------
+    // ACT
+    // ------------------------------------------------------------------
+    "FC_Redler"(R := R);
+
+    // ------------------------------------------------------------------
+    // ASSERT
+    // ------------------------------------------------------------------
+    IF R.Base.Status <> Exp_Status THEN FailMask := FailMask OR 16#0001; END_IF;
+    IF R.Base.FLTCode <> Exp_FLTCode THEN FailMask := FailMask OR 16#0002; END_IF;
+    IF R.DO_Run <> Exp_DO_Run THEN FailMask := FailMask OR 16#0004; END_IF;
+
+    // RESET додаткові гарантії (таймінги повинні обнулитись)
+    IF CaseId = 3 THEN
+        IF R.StartMs <> 0 THEN FailMask := FailMask OR 16#0010; END_IF;
+        IF R.SpeedLostMs <> 0 THEN FailMask := FailMask OR 16#0020; END_IF;
+        // Cmd тут НЕ перевіряємо: Cmd рівнева, механізм її не "гасить"
+    END_IF;
+
+    Failed := (FailMask <> 0);
+    Passed := NOT Failed;
+END_FUNCTION_BLOCK
