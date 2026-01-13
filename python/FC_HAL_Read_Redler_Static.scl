@@ -1,0 +1,53 @@
+// ==============================================================================
+// FC_HAL_Read_Redler_Static
+// HAL Read Phase: Читання входів та нормалізація сигналів
+//
+// Згенеровано автоматично: 2026-01-13 16:47:15
+// Джерело: IO_Config.xlsx
+// Механізмів: 2
+// ==============================================================================
+
+FUNCTION "FC_HAL_Read_Redler_Static" : VOID
+{ S7_Optimized_Access := 'TRUE' }
+
+VAR_IN_OUT
+    Redler : ARRAY[*] OF "UDT_Redler";
+END_VAR
+
+VAR_TEMP
+    // Прямий доступ до входів через AT
+
+    // [0] Redler_Intake_1 (Slot 0)
+    R0_Speed    AT %I0.0 : BOOL;
+    R0_Breaker  AT %I0.1 : BOOL;
+    R0_Overflow AT %I0.2 : BOOL;
+
+    // [1] Redler_Tower_B2 (Slot 1)
+    R1_Speed    AT %I0.3 : BOOL;
+    R1_Breaker  AT %I0.4 : BOOL;
+    R1_Overflow AT %I0.5 : BOOL;
+
+END_VAR
+
+BEGIN
+    // ==========================================================================
+    // ЧИТАННЯ ТА НОРМАЛІЗАЦІЯ ВХОДІВ
+    // ==========================================================================
+
+    // --------------------------------------------------------------------------
+    // [0] Redler_Intake_1 (Slot 0)
+    // Прийом зерна
+    // --------------------------------------------------------------------------
+    Redler[0].DI_Speed_OK := R0_Speed;
+    Redler[0].DI_Breaker_OK := R0_Breaker;
+    Redler[0].DI_Overflow_OK := R0_Overflow;
+
+    // --------------------------------------------------------------------------
+    // [1] Redler_Tower_B2 (Slot 1)
+    // Вежа Б2
+    // --------------------------------------------------------------------------
+    Redler[1].DI_Speed_OK := R1_Speed;
+    Redler[1].DI_Breaker_OK := NOT R1_Breaker;
+    Redler[1].DI_Overflow_OK := R1_Overflow;
+
+END_FUNCTION

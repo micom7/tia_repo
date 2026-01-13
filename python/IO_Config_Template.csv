@@ -1,0 +1,6 @@
+Slot,DeviceType,TypedIndex,Name,DI_Speed_Addr,DI_Breaker_Addr,DI_Overflow_Addr,DO_Run_Addr,DI_Speed_Invert,DI_Breaker_Invert,DI_Overflow_Invert,DO_Run_Invert,Enable_OK,Comment
+0,2,0,Redler_Intake_1,%I0.0,%I0.1,%I0.2,%Q0.0,FALSE,FALSE,FALSE,FALSE,TRUE,Прийом зерна з автотранспорту
+1,2,1,Redler_Tower_B2,%I0.3,%I0.4,%I0.5,%Q0.1,FALSE,TRUE,FALSE,FALSE,TRUE,Вежа Б2 подача на поверх 3
+2,2,2,Redler_Silo_10,%I0.6,%I0.7,%I1.0,%Q0.2,TRUE,FALSE,FALSE,FALSE,TRUE,Силос 10 вивантаження
+3,2,3,Redler_Transfer_A,%I1.1,%I1.2,%I1.3,%Q0.3,FALSE,FALSE,FALSE,FALSE,TRUE,Перекидка між лініями A-B
+4,2,4,Redler_Dryer_In,%I1.4,%I1.5,%I1.6,%Q0.4,FALSE,FALSE,FALSE,FALSE,TRUE,Подача на сушарку
