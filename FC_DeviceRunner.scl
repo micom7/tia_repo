@@ -1,51 +1,68 @@
+// ==============================================================================
+// FC_DeviceRunner - Виконання механізмів
+// ==============================================================================
+// Project  : Elevator_System
+// Author   : Engineering Team
+// Version  : 1.0.0
+// Generated: 2026-01-14 10:18:12
+// ==============================================================================
+
 FUNCTION "FC_DeviceRunner" : VOID
 { S7_Optimized_Access := 'TRUE' }
+VERSION : 1.0
 
 VAR_IN_OUT
-    // "Шина" базових механізмів (слоти). Її використовують Arbiter/RouteFSM/SCADA.
     Mechs  : ARRAY[*] OF "UDT_BaseMechanism";
-
-    // Типізовані екземпляри (тільки специфіка)
     Redler : ARRAY[*] OF "UDT_Redler";
+    Noria  : ARRAY[*] OF "UDT_Noria";
+    Gate   : ARRAY[*] OF "UDT_Gate2P";
+    Fan    : ARRAY[*] OF "UDT_Fan";
 END_VAR
 
 VAR_TEMP
-    slotLo : DINT;
-    slotHi : DINT;
-    rLo    : DINT;
-    rHi    : DINT;
-
-    slot   : DINT;
-    idx    : DINT;
+    slot : INT;
+    idx  : INT;
 END_VAR
 
 BEGIN
-    // Межі масивів
-    slotLo := LOWER_BOUND(ARR := Mechs,  DIM := UDINT#1);
-    slotHi := UPPER_BOUND(ARR := Mechs,  DIM := UDINT#1);
-
-    rLo := LOWER_BOUND(ARR := Redler, DIM := UDINT#1);
-    rHi := UPPER_BOUND(ARR := Redler, DIM := UDINT#1);
-
-    // Проходимо по слотах і викликаємо типізовані механізми по мапінгу DeviceType/TypedIndex
-    FOR slot := slotLo TO slotHi DO
-
-        // ===== REDLER =====
-        IF Mechs[DINT_TO_INT(slot)].DeviceType = "DB_Const".TYPE_REDLER THEN
-
-            idx := UINT_TO_DINT(Mechs[DINT_TO_INT(slot)].TypedIndex);
-
-            // Активний слот, якщо TypedIndex потрапляє в межі масиву Redler[]
-            IF (idx >= rLo) AND (idx <= rHi) THEN
-                "FC_Redler"(
-                    R := Redler[DINT_TO_INT(idx)],
-                    B := Mechs[DINT_TO_INT(slot)]
-                );
-            END_IF;
-
+    // ===================================================================
+    // REDLERS (діапазон slot: 0..1)
+    // ===================================================================
+    FOR slot := 0 TO 1 DO
+        IF Mechs[slot].DeviceType = "DB_Const".TYPE_REDLER THEN
+            idx := Mechs[slot].TypedIndex;
+            "FC_Redler"(R := Redler[idx], B := Mechs[slot]);
         END_IF;
-
-        // Інші типи (норія/шнек/клапан...) додаються тут аналогічними IF.
     END_FOR;
-
+    
+    // ===================================================================
+    // NORIAS (діапазон slot: 50..51)
+    // ===================================================================
+    FOR slot := 50 TO 51 DO
+        IF Mechs[slot].DeviceType = "DB_Const".TYPE_NORIA THEN
+            idx := Mechs[slot].TypedIndex;
+            "FC_Noria"(N := Noria[idx], B := Mechs[slot]);
+        END_IF;
+    END_FOR;
+    
+    // ===================================================================
+    // GATES (діапазон slot: 100..101)
+    // ===================================================================
+    FOR slot := 100 TO 101 DO
+        IF Mechs[slot].DeviceType = "DB_Const".TYPE_GATE2P THEN
+            idx := Mechs[slot].TypedIndex;
+            "FC_Gate2P"(G := Gate[idx], B := Mechs[slot]);
+        END_IF;
+    END_FOR;
+    
+    // ===================================================================
+    // FANS (діапазон slot: 150..150)
+    // ===================================================================
+    FOR slot := 150 TO 150 DO
+        IF Mechs[slot].DeviceType = "DB_Const".TYPE_FAN THEN
+            idx := Mechs[slot].TypedIndex;
+            "FC_Fan"(F := Fan[idx], B := Mechs[slot]);
+        END_IF;
+    END_FOR;
+    
 END_FUNCTION

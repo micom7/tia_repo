@@ -3,7 +3,7 @@
 **Проект:** Elevator_System  
 **Версія:** 1.0.0  
 **Автор:** Engineering Team  
-**Дата генерації:** 2026-01-14 09:21:38
+**Дата генерації:** 2026-01-14 10:18:12
 
 ---
 
@@ -30,24 +30,24 @@
 
 ## Редлери
 
-| Slot | TypedIdx | Name | Location | I/O | Timeouts |
-|------|----------|------|----------|-----|----------|
-| 0 | 0 | Редлер_1 | Силос 1, Підвал | IN: %I0.0, %I0.1, %I0.2 / OUT: %Q0.0 | Start: 5000ms, Speed: 2000ms |
-| 1 | 1 | Редлер_2 | Силос 2, Підвал | IN: %I0.3, %I0.4, %I0.5 / OUT: %Q0.1 | Start: 5000ms, Speed: 2000ms |
+| Slot | TypedIdx | Name | Location | I/O |
+|------|----------|------|----------|-----|
+| 0 | 0 | Редлер_1 | Силос 1, Підвал | IN: %I0.0, %I0.1, %I0.2 / OUT: %Q0.0 |
+| 1 | 1 | Редлер_2 | Силос 2, Підвал | IN: %I0.3, %I0.4, %I0.5 / OUT: %Q0.1 |
 
 ## Норії
 
-| Slot | TypedIdx | Name | Location | I/O | Timeout |
-|------|----------|------|----------|-----|----------|
-| 50 | 0 | Норія_1 | Башта 1 | IN: %I2.0, %I2.1, %I2.2, %I2.3 / OUT: %Q2.0 | 10000ms |
-| 51 | 1 | Норія_2 | Башта 2 | IN: %I2.4, %I2.5, %I2.6, %I2.7 / OUT: %Q2.1 | 10000ms |
+| Slot | TypedIdx | Name | Location | I/O |
+|------|----------|------|----------|-----|
+| 50 | 0 | Норія_1 | Башта 1 | IN: %I2.0, %I2.1, %I2.2, %I2.3 / OUT: %Q2.0 |
+| 51 | 1 | Норія_2 | Башта 2 | IN: %I2.4, %I2.5, %I2.6, %I2.7 / OUT: %Q2.1 |
 
 ## Засувки
 
-| Slot | TypedIdx | Name | Location | I/O | Timeout |
-|------|----------|------|----------|-----|----------|
-| 100 | 0 | Засувка_1 | Силос 1, Низ | IN: %I3.0, %I3.1 / OUT: %Q3.0, %Q3.1 | 15000ms |
-| 101 | 1 | Засувка_2 | Силос 2, Низ | IN: %I3.2, %I3.3 / OUT: %Q3.2, %Q3.3 | 15000ms |
+| Slot | TypedIdx | Name | Location | I/O |
+|------|----------|------|----------|-----|
+| 100 | 0 | Засувка_1 | Силос 1, Низ | IN: %I3.0, %I3.1 / OUT: %Q3.0, %Q3.1 |
+| 101 | 1 | Засувка_2 | Силос 2, Низ | IN: %I3.2, %I3.3 / OUT: %Q3.2, %Q3.3 |
 
 ## Вентилятори
 
@@ -61,7 +61,6 @@
 
 ### OB100 (Startup)
 ```scl
-// Викликати ОДИН РАЗ при старті PLC
 "FC_InitMechs"();
 ```
 
@@ -69,6 +68,9 @@
 ```scl
 // 1. Читання HAL входів
 "FC_HAL_Redler_Read"(Redler := "DB_Mechs".Redler);
+"FC_HAL_Noria_Read"(Noria := "DB_Mechs".Noria);
+"FC_HAL_Gate_Read"(Gate := "DB_Mechs".Gate);
+"FC_HAL_Fan_Read"(Fan := "DB_Mechs".Fan);
 
 // 2. Виконання механізмів
 "FC_DeviceRunner"(
@@ -81,4 +83,7 @@
 
 // 3. Запис HAL виходів
 "FC_HAL_Redler_Write"(Redler := "DB_Mechs".Redler);
+"FC_HAL_Noria_Write"(Noria := "DB_Mechs".Noria);
+"FC_HAL_Gate_Write"(Gate := "DB_Mechs".Gate);
+"FC_HAL_Fan_Write"(Fan := "DB_Mechs".Fan);
 ```

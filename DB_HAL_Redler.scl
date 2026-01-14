@@ -1,0 +1,31 @@
+// ==============================================================================
+// DB_HAL_Redler - Мапінг I/O редлерів
+// ==============================================================================
+// Project  : Elevator_System
+// Author   : Engineering Team
+// Version  : 1.0.0
+// Generated: 2026-01-14 10:18:12
+// ==============================================================================
+
+DATA_BLOCK "DB_HAL_Redler"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 1.0
+
+VAR
+
+    // Редлер_1 (Slot 0, Силос 1, Підвал)
+    DI_Speed_0    AT %I0.0    : BOOL;
+    DI_Breaker_0  AT %I0.1  : BOOL;
+    DI_Overflow_0 AT %I0.2 : BOOL;
+    DO_Run_0      AT %Q0.0      : BOOL;
+
+    // Редлер_2 (Slot 1, Силос 2, Підвал)
+    DI_Speed_1    AT %I0.3    : BOOL;
+    DI_Breaker_1  AT %I0.4  : BOOL;
+    DI_Overflow_1 AT %I0.5 : BOOL;
+    DO_Run_1      AT %Q0.1      : BOOL;
+
+END_VAR
+
+BEGIN
+END_DATA_BLOCK

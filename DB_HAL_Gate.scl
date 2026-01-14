@@ -1,0 +1,31 @@
+// ==============================================================================
+// DB_HAL_Gate - Мапінг I/O засувок
+// ==============================================================================
+// Project  : Elevator_System
+// Author   : Engineering Team
+// Version  : 1.0.0
+// Generated: 2026-01-14 10:18:12
+// ==============================================================================
+
+DATA_BLOCK "DB_HAL_Gate"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 1.0
+
+VAR
+
+    // Засувка_1 (Slot 100, Силос 1, Низ)
+    DI_Opened_0 AT %I3.0 : BOOL;
+    DI_Closed_0 AT %I3.1 : BOOL;
+    DO_Open_0   AT %Q3.0   : BOOL;
+    DO_Close_0  AT %Q3.1  : BOOL;
+
+    // Засувка_2 (Slot 101, Силос 2, Низ)
+    DI_Opened_1 AT %I3.2 : BOOL;
+    DI_Closed_1 AT %I3.3 : BOOL;
+    DO_Open_1   AT %Q3.2   : BOOL;
+    DO_Close_1  AT %Q3.3  : BOOL;
+
+END_VAR
+
+BEGIN
+END_DATA_BLOCK
