@@ -1,0 +1,63 @@
+// ============================================================================
+// FC_InitMechs - Ініціалізація мапінгу механізмів
+// ============================================================================
+// Project  : Elevator_System
+// Author   : Engineering Team
+// Version  : 1.0.0
+// Generated: 2026-01-14 09:21:38
+// ============================================================================
+
+FUNCTION "FC_InitMechs" : VOID
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 1.0
+
+// ============================================================================
+// ВИКЛИКАТИ ОДИН РАЗ ПРИ СТАРТІ PLC (OB100)
+// ============================================================================
+// Ініціалізує DeviceType та TypedIndex для всіх механізмів.
+// Порожні слоти залишаються з DeviceType=TYPE_NONE (0).
+// ============================================================================
+
+VAR_TEMP
+    i : INT;
+END_VAR
+
+BEGIN
+    // ===================================================================
+    // КРОК 1: Очистити ВСІ слоти (за замовчуванням = порожні)
+    // ===================================================================
+    FOR i := 0 TO 255 DO
+        "DB_Mechs".Mechs[i].DeviceType := "DB_Const".TYPE_NONE;
+        "DB_Mechs".Mechs[i].TypedIndex := UINT#16#FFFF;
+    END_FOR;
+    
+    // ===================================================================
+    // КРОК 2: Ініціалізувати ТІЛЬКИ активні слоти
+    // ===================================================================
+    
+    // === REDLERS ===
+    "DB_Mechs".Mechs[0].DeviceType := "DB_Const".TYPE_REDLER;  // Редлер_1 (Силос 1, Підвал)
+    "DB_Mechs".Mechs[0].TypedIndex := 0;
+
+    "DB_Mechs".Mechs[1].DeviceType := "DB_Const".TYPE_REDLER;  // Редлер_2 (Силос 2, Підвал)
+    "DB_Mechs".Mechs[1].TypedIndex := 1;
+
+    // === NORIAS ===
+    "DB_Mechs".Mechs[50].DeviceType := "DB_Const".TYPE_NORIA;  // Норія_1 (Башта 1)
+    "DB_Mechs".Mechs[50].TypedIndex := 0;
+
+    "DB_Mechs".Mechs[51].DeviceType := "DB_Const".TYPE_NORIA;  // Норія_2 (Башта 2)
+    "DB_Mechs".Mechs[51].TypedIndex := 1;
+
+    // === GATES ===
+    "DB_Mechs".Mechs[100].DeviceType := "DB_Const".TYPE_GATE2P;  // Засувка_1 (Силос 1, Низ)
+    "DB_Mechs".Mechs[100].TypedIndex := 0;
+
+    "DB_Mechs".Mechs[101].DeviceType := "DB_Const".TYPE_GATE2P;  // Засувка_2 (Силос 2, Низ)
+    "DB_Mechs".Mechs[101].TypedIndex := 1;
+
+    // === FANS ===
+    "DB_Mechs".Mechs[150].DeviceType := "DB_Const".TYPE_FAN;  // Вентилятор_1 (Силос 1, Верх)
+    "DB_Mechs".Mechs[150].TypedIndex := 0;
+
+END_FUNCTION

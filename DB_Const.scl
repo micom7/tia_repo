@@ -22,6 +22,11 @@ VAR
 
     TimeoutMs_Redler_Start : DINT := 5000;
     TimeoutMs_Redler_SpeedPause: DINT := 2000;
+	
+	TimeoutMs_Noria_Start : DINT := 10000;
+    TimeoutMs_Noria_SpeedPause: DINT := 2000;
+    
+    TimeoutMs_Gate_Move : DINT := 15000;
     
     STS_IDLE     : UINT := 0;
     STS_STARTING : UINT := 1;

@@ -1,0 +1,103 @@
+FUNCTION "FC_Gate2P" : VOID
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 1.0
+
+// ============================================================================
+// FC_Gate2P - Логіка засувки (ЗАГЛУШКА)
+// ============================================================================
+// TODO: Реалізувати повну логіку засувки з таймаутами руху
+// ============================================================================
+
+VAR_IN_OUT
+    G : "UDT_Gate2P";            // типізована засувка (I/O + таймінги)
+    B : "UDT_BaseMechanism";   // базовий механізм слоту (Cmd/Status/FLT/Owner...)
+END_VAR
+
+VAR_TEMP
+    isFault   : BOOL;
+    isBlocked : BOOL;
+END_VAR
+
+BEGIN
+    // =========================================================
+    // ЗАГЛУШКА: базова логіка без повної FSM
+    // =========================================================
+    
+    // 1. RESET
+    IF B.Cmd = "DB_Const".CMD_RESET THEN
+        B.FLTCode := "DB_Const".FLT_NONE;
+        B.Status  := "DB_Const".STS_IDLE;
+        G.MoveStartMs := 0;
+        B.LastCmd := B.Cmd;
+    END_IF;
+    
+    isFault := (B.Status = "DB_Const".STS_FAULT);
+    
+    // 2. Enable / LocalManual
+    IF NOT B.Enable_OK THEN
+        B.Status := "DB_Const".STS_DISABLED;
+        B.OwnerCur := 0;
+        B.OwnerCurId := 0;
+        G.MoveStartMs := 0;
+        
+    ELSIF B.LocalManual THEN
+        B.Status := "DB_Const".STS_LOCAL;
+        B.OwnerCur := 0;
+        B.OwnerCurId := 0;
+        G.MoveStartMs := 0;
+    END_IF;
+    
+    isBlocked := (B.Status = "DB_Const".STS_DISABLED) OR (B.Status = "DB_Const".STS_LOCAL);
+    
+    // 3. Фіксація команди
+    IF B.Cmd <> "DB_Const".CMD_NONE THEN
+        B.LastCmd := B.Cmd;
+    END_IF;
+    
+    // 4. Проста FSM (заглушка)
+    IF (NOT isFault) AND (NOT isBlocked) THEN
+        
+        // CMD_START = відкрити
+        IF B.Cmd = "DB_Const".CMD_START THEN
+            IF B.Status = "DB_Const".STS_IDLE THEN
+                B.Status := "DB_Const".STS_STARTING;
+                G.MoveStartMs := TIME_TCK();
+            END_IF;
+        END_IF;
+        
+        // CMD_STOP = закрити
+        IF B.Cmd = "DB_Const".CMD_STOP THEN
+            IF (B.Status = "DB_Const".STS_STARTING) OR (B.Status = "DB_Const".STS_RUNNING) THEN
+                B.Status := "DB_Const".STS_STOPPING;
+                G.MoveStartMs := TIME_TCK();
+            END_IF;
+        END_IF;
+        
+        // Переходи станів (спрощені)
+        IF B.Status = "DB_Const".STS_STARTING THEN
+            IF G.DI_Opened_OK THEN
+                B.Status := "DB_Const".STS_RUNNING;  // відкрита
+                G.MoveStartMs := 0;
+            END_IF;
+        ELSIF B.Status = "DB_Const".STS_STOPPING THEN
+            IF G.DI_Closed_OK THEN
+                B.Status := "DB_Const".STS_IDLE;  // закрита
+                G.MoveStartMs := 0;
+            END_IF;
+        END_IF;
+        
+    END_IF;
+    
+    // 5. Формування виходів
+    IF B.Status = "DB_Const".STS_STARTING THEN
+        G.DO_Open := TRUE;
+        G.DO_Close := FALSE;
+    ELSIF B.Status = "DB_Const".STS_STOPPING THEN
+        G.DO_Open := FALSE;
+        G.DO_Close := TRUE;
+    ELSE
+        G.DO_Open := FALSE;
+        G.DO_Close := FALSE;
+    END_IF;
+    
+END_FUNCTION
