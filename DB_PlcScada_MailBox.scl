@@ -1,0 +1,12 @@
+// File: DB_PlcToScada_MailBox.scl
+// Відповідь PLC → SCADA на команду MailBox
+DATA_BLOCK "DB_PlcScada_MailBox"
+{ S7_Optimized_Access := 'TRUE' }
+
+VAR
+    Ack : "UDT_MailBox_Ack";
+    Req : "UDT_MailBox_Req";
+END_VAR
+
+BEGIN
+END_DATA_BLOCK

@@ -9,7 +9,6 @@ VAR_INPUT
 
     ReqCmd     : USINT;   // DB_Const.CMD_*
     ReqParam1  : INT;
-    ReqForce   : INT;
 
     ReleaseOwner : BOOL;  // TRUE = звільнити ownership
     LockOnly     : BOOL;  // TRUE = тільки lock/verify, без запису Cmd
@@ -79,7 +78,6 @@ BEGIN
             IF allowExec THEN
                 M.Cmd        := ReqCmd;
                 M.CmdParam1  := ReqParam1;
-                M.Force_Code := ReqForce;
             END_IF;
         END_IF;
 

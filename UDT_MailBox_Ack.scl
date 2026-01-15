@@ -1,0 +1,10 @@
+// File: UDT_MailBox_Ack.scl
+// Відповідь PLC на команду
+TYPE "UDT_MailBox_Ack" :
+STRUCT
+    AckCommit  : UDINT;     // підтверджений commit
+    AckOk      : BOOL;      // TRUE = команда виконана
+    RejectCode : USINT;     // 0=OK, інше = MAN_REJ_*
+    Slot       : UINT;      // слот, до якого застосовано (для верифікації)
+END_STRUCT;
+END_TYPE

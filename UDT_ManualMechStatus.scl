@@ -1,11 +1,9 @@
 // File: UDT_ManualMechStatus.scl
+// Статус механізму для SCADA UI (тільки діагностика)
 TYPE "UDT_ManualMechStatus" :
 STRUCT
     ManualAllowed : BOOL;      // TRUE = SCADA може керувати
-    AckCommit     : UDINT;     // останній оброблений commit
-    AckOk         : BOOL;      // TRUE = команда прийнята
-    RejectCode    : USINT;     // 0=OK, інше=причина відмови
-    CurrentOwner  : USINT;     // поточний власник (діагностика)
-    CurrentStatus : UINT;      // поточний статус механізму (діагностика)
+    CurrentOwner  : USINT;     // поточний власник
+    CurrentStatus : UINT;      // поточний статус механізму
 END_STRUCT;
 END_TYPE

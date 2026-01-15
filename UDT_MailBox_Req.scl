@@ -1,0 +1,12 @@
+// File: UDT_MailBox_Req.scl
+// Запит команди від SCADA (єдиний канал)
+TYPE "UDT_MailBox_Req" :
+STRUCT
+    Slot         : UINT;     // цільовий слот (0..255)
+    Cmd          : USINT;    // CMD_START / CMD_STOP / CMD_RESET
+    Param1       : INT;      // параметр команди
+    Force_Code   : INT;      // форсування захистів
+    ReleaseOwner : BOOL;     // TRUE = звільнити OWNER_SCADA
+    Commit       : UDINT;    // лічильник (SCADA інкрементує після запису)
+END_STRUCT;
+END_TYPE
