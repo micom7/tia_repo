@@ -1,0 +1,246 @@
+FUNCTION_BLOCK "FB_Test_ManualMechCmdHandler"
+{ S7_Optimized_Access := 'TRUE' }
+
+VAR_INPUT
+    Run    : BOOL;   // TRUE = виконати тест
+    CaseId : INT;    // номер тест-кейсу
+END_VAR
+
+VAR_OUTPUT
+    Passed   : BOOL;
+    Failed   : BOOL;
+    FailMask : DWORD;
+END_VAR
+
+VAR
+    slot : UINT;
+
+    LocalManualGlobal : BOOL;
+
+    Exp_ManualAllowed : BOOL;
+    Exp_CurrentOwner  : USINT;
+    Exp_CurrentStatus : UINT;
+
+    Exp_AckCommit  : UDINT;
+    Exp_AckOk      : BOOL;
+    Exp_RejectCode : USINT;
+    Exp_AckSlot    : UINT;
+
+    Exp_OwnerCur   : USINT;
+    Exp_OwnerCurId : UINT;
+    Exp_Cmd        : USINT;
+    Exp_CmdParam1  : INT;
+END_VAR
+
+BEGIN
+    Passed := FALSE;
+    Failed := FALSE;
+    FailMask := 0;
+
+    IF NOT Run THEN
+        RETURN;
+    END_IF;
+
+    slot := 5;
+    LocalManualGlobal := FALSE;
+
+    // ------------------------------------------------------------------
+    // ARRANGE — базовий "здоровий" стан
+    // ------------------------------------------------------------------
+    "DB_Mechs".Mechs[slot].DeviceType := "DB_Const".TYPE_REDLER;
+    "DB_Mechs".Mechs[slot].TypedIndex := 0;
+    "DB_Mechs".Mechs[slot].Enable_OK := TRUE;
+    "DB_Mechs".Mechs[slot].LocalManual := FALSE;
+    "DB_Mechs".Mechs[slot].Cmd := "DB_Const".CMD_NONE;
+    "DB_Mechs".Mechs[slot].CmdParam1 := 0;
+    "DB_Mechs".Mechs[slot].Force_Code := 0;
+    "DB_Mechs".Mechs[slot].OwnerCur := "DB_Const".OWNER_NONE;
+    "DB_Mechs".Mechs[slot].OwnerCurId := 0;
+    "DB_Mechs".Mechs[slot].LastCmd := "DB_Const".CMD_NONE;
+    "DB_Mechs".Mechs[slot].FLTCode := "DB_Const".FLT_NONE;
+    "DB_Mechs".Mechs[slot].Status := "DB_Const".STS_IDLE;
+
+    "DB_PlcScada_MailBox".Req.Slot := slot;
+    "DB_PlcScada_MailBox".Req.Cmd := "DB_Const".CMD_NONE;
+    "DB_PlcScada_MailBox".Req.Param1 := 0;
+    "DB_PlcScada_MailBox".Req.Force_Code := 0;
+    "DB_PlcScada_MailBox".Req.ReleaseOwner := FALSE;
+    "DB_PlcScada_MailBox".Req.Commit := 0;
+
+    "DB_PlcScada_MailBox".Ack.AckCommit := 0;
+    "DB_PlcScada_MailBox".Ack.AckOk := FALSE;
+    "DB_PlcScada_MailBox".Ack.RejectCode := 0;
+    "DB_PlcScada_MailBox".Ack.Slot := 0;
+
+    Exp_ManualAllowed := TRUE;
+    Exp_CurrentOwner := "DB_Mechs".Mechs[slot].OwnerCur;
+    Exp_CurrentStatus := "DB_Mechs".Mechs[slot].Status;
+
+    Exp_AckCommit := 0;
+    Exp_AckOk := FALSE;
+    Exp_RejectCode := 0;
+    Exp_AckSlot := 0;
+
+    Exp_OwnerCur := "DB_Mechs".Mechs[slot].OwnerCur;
+    Exp_OwnerCurId := "DB_Mechs".Mechs[slot].OwnerCurId;
+    Exp_Cmd := "DB_Mechs".Mechs[slot].Cmd;
+    Exp_CmdParam1 := "DB_Mechs".Mechs[slot].CmdParam1;
+
+    // ------------------------------------------------------------------
+    // TEST CASES
+    // ------------------------------------------------------------------
+    CASE CaseId OF
+        // A1: Маппінг OK + дозволено → ManualAllowed = TRUE
+        1:
+            ;// базовий випадок
+
+        // A2: LocalManualGlobal = TRUE → ManualAllowed = FALSE
+        2:
+            LocalManualGlobal := TRUE;
+            Exp_ManualAllowed := FALSE;
+
+        // A3: Слот не замаплений → ManualAllowed = FALSE
+        3:
+            "DB_Mechs".Mechs[slot].DeviceType := "DB_Const".TYPE_NONE;
+            "DB_Mechs".Mechs[slot].TypedIndex := UINT#16#FFFF;
+            Exp_ManualAllowed := FALSE;
+
+        // B1: Slot > 255 → Reject MAN_REJ_SLOT_UNMAPPED
+        4:
+            "DB_PlcScada_MailBox".Req.Slot := UINT#300;
+            "DB_PlcScada_MailBox".Req.Commit := 1;
+
+            Exp_AckCommit := 1;
+            Exp_AckOk := FALSE;
+            Exp_RejectCode := "DB_Const".MAN_REJ_SLOT_UNMAPPED;
+            Exp_AckSlot := UINT#300;
+
+        // B2: LocalManual слоту → Reject MAN_REJ_LOCAL_MANUAL
+        5:
+            "DB_Mechs".Mechs[slot].LocalManual := TRUE;
+            "DB_PlcScada_MailBox".Req.Commit := 1;
+
+            Exp_ManualAllowed := FALSE;
+            Exp_AckCommit := 1;
+            Exp_AckOk := FALSE;
+            Exp_RejectCode := "DB_Const".MAN_REJ_LOCAL_MANUAL;
+            Exp_AckSlot := slot;
+
+        // B3: Enable_OK = FALSE → Reject MAN_REJ_NOT_ENABLED
+        6:
+            "DB_Mechs".Mechs[slot].Enable_OK := FALSE;
+            "DB_PlcScada_MailBox".Req.Commit := 1;
+
+            Exp_ManualAllowed := FALSE;
+            Exp_AckCommit := 1;
+            Exp_AckOk := FALSE;
+            Exp_RejectCode := "DB_Const".MAN_REJ_NOT_ENABLED;
+            Exp_AckSlot := slot;
+
+        // B4: Owner != NONE/SCADA → Reject MAN_REJ_OWNER_BUSY
+        7:
+            "DB_Mechs".Mechs[slot].OwnerCur := "DB_Const".OWNER_ROUTE;
+            "DB_Mechs".Mechs[slot].OwnerCurId := 2;
+            "DB_PlcScada_MailBox".Req.Commit := 1;
+
+            Exp_ManualAllowed := FALSE;
+            Exp_CurrentOwner := "DB_Const".OWNER_ROUTE;
+            Exp_AckCommit := 1;
+            Exp_AckOk := FALSE;
+            Exp_RejectCode := "DB_Const".MAN_REJ_OWNER_BUSY;
+            Exp_AckSlot := slot;
+            Exp_OwnerCur := "DB_Const".OWNER_ROUTE;
+            Exp_OwnerCurId := 2;
+
+        // B5: Cmd = NONE → Reject MAN_REJ_CMD_INVALID
+        8:
+            "DB_PlcScada_MailBox".Req.Commit := 1;
+            "DB_PlcScada_MailBox".Req.Cmd := "DB_Const".CMD_NONE;
+
+            Exp_AckCommit := 1;
+            Exp_AckOk := FALSE;
+            Exp_RejectCode := "DB_Const".MAN_REJ_CMD_INVALID;
+            Exp_AckSlot := slot;
+
+        // C1: Команда OK → AckOk TRUE, Owner = SCADA, Cmd записано
+        9:
+            "DB_PlcScada_MailBox".Req.Commit := 1;
+            "DB_PlcScada_MailBox".Req.Cmd := "DB_Const".CMD_START;
+            "DB_PlcScada_MailBox".Req.Param1 := 7;
+
+            Exp_AckCommit := 1;
+            Exp_AckOk := TRUE;
+            Exp_RejectCode := "DB_Const".MAN_REJ_OK;
+            Exp_AckSlot := slot;
+            Exp_OwnerCur := "DB_Const".OWNER_SCADA;
+            Exp_OwnerCurId := 0;
+            Exp_Cmd := "DB_Const".CMD_START;
+            Exp_CmdParam1 := 7;
+
+        // C2: ReleaseOwner OK → Owner NONE
+        10:
+            "DB_Mechs".Mechs[slot].OwnerCur := "DB_Const".OWNER_SCADA;
+            "DB_Mechs".Mechs[slot].OwnerCurId := 0;
+            "DB_PlcScada_MailBox".Req.ReleaseOwner := TRUE;
+            "DB_PlcScada_MailBox".Req.Commit := 1;
+
+            Exp_ManualAllowed := FALSE;
+            Exp_CurrentOwner := "DB_Const".OWNER_SCADA;
+            Exp_AckCommit := 1;
+            Exp_AckOk := TRUE;
+            Exp_RejectCode := "DB_Const".MAN_REJ_OK;
+            Exp_AckSlot := slot;
+            Exp_OwnerCur := "DB_Const".OWNER_NONE;
+            Exp_OwnerCurId := 0;
+
+        // C3: ReleaseOwner FAIL (OwnerCurId != 0) → MAN_REJ_ARBITER_FAIL
+        11:
+            "DB_Mechs".Mechs[slot].OwnerCur := "DB_Const".OWNER_SCADA;
+            "DB_Mechs".Mechs[slot].OwnerCurId := 9;
+            "DB_PlcScada_MailBox".Req.ReleaseOwner := TRUE;
+            "DB_PlcScada_MailBox".Req.Commit := 1;
+
+            Exp_ManualAllowed := FALSE;
+            Exp_CurrentOwner := "DB_Const".OWNER_SCADA;
+            Exp_AckCommit := 1;
+            Exp_AckOk := FALSE;
+            Exp_RejectCode := "DB_Const".MAN_REJ_ARBITER_FAIL;
+            Exp_AckSlot := slot;
+            Exp_OwnerCur := "DB_Const".OWNER_SCADA;
+            Exp_OwnerCurId := 9;
+
+        ELSE
+            RETURN;
+    END_CASE;
+
+    // ------------------------------------------------------------------
+    // ACT
+    // ------------------------------------------------------------------
+    "FC_ManualMechCmdHandler"(LocalManualGlobal := LocalManualGlobal);
+
+    // ------------------------------------------------------------------
+    // ASSERT
+    // ------------------------------------------------------------------
+    IF "DB_PlcToScada_ManualMechStatus".StatusBySlot[slot].ManualAllowed <> Exp_ManualAllowed THEN
+        FailMask := FailMask OR 16#0001;
+    END_IF;
+    IF "DB_PlcToScada_ManualMechStatus".StatusBySlot[slot].CurrentOwner <> Exp_CurrentOwner THEN
+        FailMask := FailMask OR 16#0002;
+    END_IF;
+    IF "DB_PlcToScada_ManualMechStatus".StatusBySlot[slot].CurrentStatus <> Exp_CurrentStatus THEN
+        FailMask := FailMask OR 16#0004;
+    END_IF;
+
+    IF "DB_PlcScada_MailBox".Ack.AckCommit <> Exp_AckCommit THEN FailMask := FailMask OR 16#0010; END_IF;
+    IF "DB_PlcScada_MailBox".Ack.AckOk <> Exp_AckOk THEN FailMask := FailMask OR 16#0020; END_IF;
+    IF "DB_PlcScada_MailBox".Ack.RejectCode <> Exp_RejectCode THEN FailMask := FailMask OR 16#0040; END_IF;
+    IF "DB_PlcScada_MailBox".Ack.Slot <> Exp_AckSlot THEN FailMask := FailMask OR 16#0080; END_IF;
+
+    IF "DB_Mechs".Mechs[slot].OwnerCur <> Exp_OwnerCur THEN FailMask := FailMask OR 16#0100; END_IF;
+    IF "DB_Mechs".Mechs[slot].OwnerCurId <> Exp_OwnerCurId THEN FailMask := FailMask OR 16#0200; END_IF;
+    IF "DB_Mechs".Mechs[slot].Cmd <> Exp_Cmd THEN FailMask := FailMask OR 16#0400; END_IF;
+    IF "DB_Mechs".Mechs[slot].CmdParam1 <> Exp_CmdParam1 THEN FailMask := FailMask OR 16#0800; END_IF;
+
+    Failed := (FailMask <> 0);
+    Passed := NOT Failed;
+END_FUNCTION_BLOCK

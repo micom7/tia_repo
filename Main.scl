@@ -1,0 +1,54 @@
+﻿ORGANIZATION_BLOCK "Main"
+
+TITLE = "Main Program Sweep (Cycle)"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+VAR_INPUT
+  Initial_Call : Bool;(*Initial call of this OB*)
+  Remanence : Bool;(*=True, if remanent data are available*)
+END_VAR
+
+VAR_TEMP
+
+END_VAR
+
+VAR CONSTANT
+
+END_VAR
+
+
+BEGIN
+	    
+	    
+	    // ===================================================================
+	    // 1. Читання HAL входів (УСІХ механізмів)
+	    // ===================================================================
+	    "FC_HAL_Read"(
+	                  Redler := "DB_Mechs".Redler,
+	                  Noria := "DB_Mechs".Noria,
+	                  Gate := "DB_Mechs".Gate,
+	                  Fan := "DB_Mechs".Fan
+	    );
+	    
+	    // ===================================================================
+	    // 2. Виконання логіки механізмів
+	    // ===================================================================
+	    "FC_DeviceRunner"(
+	                      Mechs := "DB_Mechs".Mechs,
+	                      Redler := "DB_Mechs".Redler,
+	                      Noria := "DB_Mechs".Noria,
+	                      Gate := "DB_Mechs".Gate,
+	                      Fan := "DB_Mechs".Fan
+	    );
+	    
+	    // ===================================================================
+	    // 3. Запис HAL виходів (УСІХ механізмів)
+	    // ===================================================================
+	    "FC_HAL_Write"(
+	                   Redler := "DB_Mechs".Redler,
+	                   Noria := "DB_Mechs".Noria,
+	                   Gate := "DB_Mechs".Gate,
+	                   Fan := "DB_Mechs".Fan
+	    );
+END_ORGANIZATION_BLOCK
+
