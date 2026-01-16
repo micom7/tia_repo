@@ -3,8 +3,7 @@ STRUCT
     // ===== Дискретні входи/виходи (HAL / залізо) =====
     DI_Speed_OK     : BOOL;    // контроль швидкості
     DI_Breaker_OK   : BOOL;    // автомат захисту
-    DI_UpperLevel_OK: BOOL;    // верхній рівень (датчик)
-    DI_LowerLevel_OK: BOOL;    // нижній рівень (датчик)
+    DI_Alingment_OK: BOOL;    // 
     DO_Run          : BOOL;    // вихід на контактор
 
     // ===== Стан/таймінги норії =====

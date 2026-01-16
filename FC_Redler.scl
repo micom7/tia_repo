@@ -1,229 +1,174 @@
-FUNCTION "FC_Redler" : VOID
+﻿FUNCTION "FC_Redler" : Void
 { S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_IN_OUT 
+      R : "UDT_Redler";   // // Типізований редлер (I/O + таймінги)
+      B : "UDT_BaseMechanism";   // // Базовий механізм слоту (Cmd/Status/FLT/Owner..
+   END_VAR
 
-VAR_IN_OUT
-    R : "UDT_Redler";           // типізований редлер (I/O + таймінги)
-    B : "UDT_BaseMechanism";    // базовий механізм слоту (Cmd/Status/FLT/Owner...)
-END_VAR
+   VAR_TEMP 
+      startTimeout : Bool;
+      speedTimeout : Bool;
+      elapsedMs : DInt;
+      nowTck : DInt;
+      forceBreaker : Bool;
+      forceOverflow : Bool;
+      forceSpeed : Bool;
+      isFault : Bool;
+      isBlocked : Bool;
+   END_VAR
 
-VAR_TEMP
-    startTimeout  : BOOL;
-    speedTimeout  : BOOL;
-    elapsedMs     : DINT;
-    nowTck        : DINT;
-
-    forceBreaker  : BOOL;
-    forceOverflow : BOOL;
-    forceSpeed    : BOOL;
-
-    isFault       : BOOL;
-    isBlocked     : BOOL;
-END_VAR
 
 BEGIN
-// ============================================================================
-// FC_Redler (під нову структуру: BaseMechanism зберігається окремо у Mechs[slot])
-// - DO_Run формується ТІЛЬКИ в кінці по B.Status
-// - LOCAL/DISABLED НЕ лачать аварії
-// - FAULT лачиться до RESET
-// - Cmd вважаємо РІВНЕВОЮ (механізм її НЕ гасить)
-// ============================================================================
-
-REGION "Опис: стани та форсування"
-    // BIT0 (1)  - подавити FLT_OVERFLOW
-    // BIT1 (2)  - подавити FLT_BREAKER
-    // BIT2 (4)  - подавити FLT_SPEED (не стартує / втрата швидкості)
-    forceOverflow := (B.Force_Code AND 1) <> 0;
-    forceBreaker  := (B.Force_Code AND 2) <> 0;
-    forceSpeed    := (B.Force_Code AND 4) <> 0;
-END_REGION
-
-
-REGION "1) RESET та латч FAULT"
-    // RESET дозволений завжди
-    IF B.Cmd = "DB_Const".CMD_RESET THEN
-        B.FLTCode := "DB_Const".FLT_NONE;
-        B.Status  := "DB_Const".STS_IDLE;
-
-        // скинути мітки таймінгів
-        R.StartMs     := 0;
-        R.SpeedLostMs := 0;
-
-        // діагностика
-        B.LastCmd := B.Cmd;
-    END_IF;
-
-    // FAULT лачиться до RESET: у FAULT ігноруємо START/STOP і FSM
-    isFault := (B.Status = "DB_Const".STS_FAULT);
-END_REGION
-
-
-REGION "2) Передумови керування (Enable / Ручний)"
-    // Якщо немає Enable або ручний режим — ПЛК НЕ керує механізмом.
-    // ВАЖЛИВО: у LOCAL/DISABLED ми НЕ лачимо місцеві аварії.
-
-    IF NOT B.Enable_OK THEN
-        B.Status := "DB_Const".STS_DISABLED;
-
-        // Відпускаємо власника (правило з редлера)
-        B.OwnerCur   := 0;
-        B.OwnerCurId := 0;
-
-        // (опційно) скинути таймінги
-        R.StartMs     := 0;
-        R.SpeedLostMs := 0;
-
-    ELSIF B.LocalManual THEN
-        B.Status := "DB_Const".STS_LOCAL;
-
-        // Локальний режим забирає керування
-        B.OwnerCur   := 0;
-        B.OwnerCurId := 0;
-
-        // (опційно) скинути таймінги
-        R.StartMs     := 0;
-        R.SpeedLostMs := 0;
-    END_IF;
-
-    isBlocked := (B.Status = "DB_Const".STS_DISABLED) OR (B.Status = "DB_Const".STS_LOCAL);
-END_REGION
-
-
-REGION "3) Фіксація останньої команди"
-    // Cmd рівнева, тож просто віддзеркалюємо в LastCmd коли Cmd != NONE.
-    IF B.Cmd <> "DB_Const".CMD_NONE THEN
-        B.LastCmd := B.Cmd;
-    END_IF;
-END_REGION
-
-
-REGION "4) Місцеві аварії (лише коли ПЛК керує), з урахуванням форсування"
-    // Місцеві аварії лачимо ТІЛЬКИ коли:
-    // - не FAULT
-    // - не LOCAL/DISABLED
-    IF (NOT isFault) AND (NOT isBlocked) THEN
-
-        // Пріоритет аварій: BREAKER > OVERFLOW
-        IF (NOT R.DI_Breaker_OK) AND (NOT forceBreaker) THEN
-            B.FLTCode := "DB_Const".FLT_BREAKER;
-            B.Status  := "DB_Const".STS_FAULT;
-
-        ELSIF (NOT R.DI_Overflow_OK) AND (NOT forceOverflow) THEN
-            B.FLTCode := "DB_Const".FLT_OVERFLOW;
-            B.Status  := "DB_Const".STS_FAULT;
-        END_IF;
-
-        isFault := (B.Status = "DB_Const".STS_FAULT);
-    END_IF;
-END_REGION
-
-
-REGION "5) Обробка команд (ПУСК / СТОП) — лише коли ПЛК керує"
-    IF (NOT isFault) AND (NOT isBlocked) THEN
-
-        // START (рівнева команда)
-        IF B.Cmd = "DB_Const".CMD_START THEN
-            IF B.Status = "DB_Const".STS_IDLE THEN
-                B.Status   := "DB_Const".STS_STARTING;
-                R.StartMs  := TIME_TCK(); // мітка старту
-            END_IF;
-        END_IF;
-
-        // STOP (рівнева команда)
-        IF B.Cmd = "DB_Const".CMD_STOP THEN
-            IF (B.Status = "DB_Const".STS_STARTING) OR (B.Status = "DB_Const".STS_RUNNING) THEN
-                B.Status := "DB_Const".STS_STOPPING;
-            END_IF;
-        END_IF;
-
-    END_IF;
-END_REGION
-
-
-REGION "6) Машина станів механізму — лише коли ПЛК керує"
-    IF (NOT isFault) AND (NOT isBlocked) THEN
-
-        // STS_IDLE
-        IF B.Status = "DB_Const".STS_IDLE THEN
-            ; // нічого
-
-        // STS_STARTING
-        ELSIF B.Status = "DB_Const".STS_STARTING THEN
-
-            IF R.DI_Speed_OK THEN
-                B.Status      := "DB_Const".STS_RUNNING;
-                R.SpeedLostMs := 0;
-                R.StartMs     := 0; // опційно
-            ELSE
-                // Якщо форсування швидкості увімкнено — пропускаємо контроль "не стартував"
-                IF NOT forceSpeed THEN
-                    startTimeout := "FC_TimeElapsedMs"(
-                                        StartTck   := R.StartMs,
-                                        TimeoutMs := "DB_Const".TimeoutMs_Redler_Start,
-                                        ElapsedMs => elapsedMs,
-                                        NowTck    => nowTck
-                                    );
-
-                    IF startTimeout THEN
-                        B.FLTCode := "DB_Const".FLT_NO_RUNFB;
-                        B.Status  := "DB_Const".STS_FAULT;
-                        isFault   := TRUE;
-                    END_IF;
-                END_IF;
-            END_IF;
-
-        // STS_RUNNING
-        ELSIF B.Status = "DB_Const".STS_RUNNING THEN
-
-            // Speed_OK зник → аварія лише якщо > TimeoutMs_Redler_SpeedPause
-            IF R.DI_Speed_OK THEN
-                R.SpeedLostMs := 0;
-            ELSE
-                IF R.SpeedLostMs = 0 THEN
-                    R.SpeedLostMs := TIME_TCK();
-                END_IF;
-
-                speedTimeout := "FC_TimeElapsedMs"(
-                                    StartTck   := R.SpeedLostMs,
-                                    TimeoutMs := "DB_Const".TimeoutMs_Redler_SpeedPause,
-                                    ElapsedMs => elapsedMs,
-                                    NowTck    => nowTck
-                                );
-
-                IF speedTimeout AND (NOT forceSpeed) THEN
-                    B.FLTCode := "DB_Const".FLT_NO_RUNFB;
-                    B.Status  := "DB_Const".STS_FAULT;
-                    isFault   := TRUE;
-                END_IF;
-            END_IF;
-
-        // STS_STOPPING
-        ELSIF B.Status = "DB_Const".STS_STOPPING THEN
-
-            // Перехід у IDLE коли реально зупинився
-            IF NOT R.DI_Speed_OK THEN
-                B.Status     := "DB_Const".STS_IDLE;
-                R.StartMs    := 0;
-                R.SpeedLostMs:= 0;
-            END_IF;
-
-        ELSE
-            // Невідомий статус у режимі керування ПЛК → приводимо до IDLE
-            B.Status := "DB_Const".STS_IDLE;
-        END_IF;
-
-    END_IF;
-END_REGION
-
-
-REGION "7) Формування виходу DO_Run"
-    // DO_Run є похідним від фінального Status.
-    // В FAULT / DISABLED / LOCAL -> FALSE автоматично.
-    IF (B.Status = "DB_Const".STS_STARTING) OR (B.Status = "DB_Const".STS_RUNNING) THEN
-        R.DO_Run := TRUE;
-    ELSE
-        R.DO_Run := FALSE;
-    END_IF;
-END_REGION
-
+	// ============================================================================
+	// FC_Redler (Refactored to CASE)
+	// ============================================================================
+	
+	REGION "Стани та формування"
+	    // BIT0 (1)  - подавити FLT_OVERFLOW
+	    // BIT1 (2)  - подавити FLT_BREAKER
+	    // BIT2 (4)  - подавити FLT_SPEED (не стартує / втрата швидкості)
+	    #forceOverflow := (#B.Force_Code AND 1) <> 0;
+	    #forceBreaker := (#B.Force_Code AND 2) <> 0;
+	    #forceSpeed := (#B.Force_Code AND 4) <> 0;
+	END_REGION
+	
+	REGION "1) RESET та лач FAULT"
+	    IF #B.Cmd = "CMD_RESET" THEN
+	        #B.FLTCode := "FLT_NONE";
+	        #B.Status := "STS_IDLE";
+	        #R.StartMs := 0;
+	        #R.SpeedLostMs := 0;
+	        #B.LastCmd := #B.Cmd;
+	    END_IF;
+	    
+	    #isFault := (#B.Status = "STS_FAULT");
+	END_REGION
+	
+	REGION "2) Передумови керування (Enable / Ручний)"
+	    IF NOT #B.Enable_OK THEN
+	        #B.Status := "STS_DISABLED";
+	        #B.OwnerCur := 0;
+	        #B.OwnerCurId := 0;
+	        #R.StartMs := 0;
+	        #R.SpeedLostMs := 0;
+	    ELSIF #B.LocalManual THEN
+	        #B.Status := "STS_LOCAL";
+	        #B.OwnerCur := 0;
+	        #B.OwnerCurId := 0;
+	        #R.StartMs := 0;
+	        #R.SpeedLostMs := 0;
+	    END_IF;
+	    
+	    #isBlocked := (#B.Status = "STS_DISABLED") OR (#B.Status = "STS_LOCAL");
+	END_REGION
+	
+	REGION "3) Фіксація останньої команди"
+	    IF #B.Cmd <> "CMD_NONE" THEN
+	        #B.LastCmd := #B.Cmd;
+	    END_IF;
+	END_REGION
+	
+	REGION "4) Місцеві аварії"
+	    IF (NOT #isFault) AND (NOT #isBlocked) THEN
+	        // Пріоритет аварій: BREAKER > OVERFLOW
+	        IF (NOT #R.DI_Breaker_OK) AND (NOT #forceBreaker) THEN
+	            #B.FLTCode := "FLT_BREAKER";
+	            #B.Status := "STS_FAULT";
+	        ELSIF (NOT #R.DI_Overflow_OK) AND (NOT #forceOverflow) THEN
+	            #B.FLTCode := "FLT_OVERFLOW";
+	            #B.Status := "STS_FAULT";
+	        END_IF;
+	        #isFault := (#B.Status = "STS_FAULT");
+	    END_IF;
+	END_REGION
+	
+	REGION "5 & 6) Машина станів та обробка команд"
+	    IF (NOT #isFault) AND (NOT #isBlocked) THEN
+	        
+	        CASE #B.Status OF
+	                
+	            "STS_IDLE":
+	                IF #B.Cmd = "CMD_START" THEN
+	                    #B.Status := "STS_STARTING";
+	                    #R.StartMs := TIME_TCK();
+	                END_IF;
+	                
+	            "STS_STARTING":
+	                // Контроль розгону (набору швидкості)
+	                IF #R.DI_Speed_OK OR #forceSpeed THEN
+	                    #B.Status := "STS_RUNNING";
+	                    #R.SpeedLostMs := 0;
+	                ELSE
+	                    #startTimeout := "FC_TimeElapsedMs"(
+	                                                        StartTck := #R.StartMs,
+	                                                        TimeoutMs := "TimeoutMs_Redler_Start",
+	                                                        ElapsedMs => #elapsedMs,
+	                                                        NowTck => #nowTck
+	                    );
+	                    IF #startTimeout THEN
+	                        #B.FLTCode := "FLT_NO_RUNFB";
+	                        #B.Status := "STS_FAULT";
+	                        #isFault := TRUE;
+	                    END_IF;
+	                END_IF;
+	                
+	                IF #B.Cmd = "CMD_STOP" THEN
+	                    #B.Status := "STS_STOPPING";
+	                END_IF;
+	                
+	            "STS_RUNNING":
+	                // Контроль втрати швидкості з фільтром часу (SpeedPause)
+	                IF #R.DI_Speed_OK OR #forceSpeed THEN
+	                    #R.SpeedLostMs := 0;
+	                ELSE
+	                    IF #R.SpeedLostMs = 0 THEN
+	                        #R.SpeedLostMs := TIME_TCK();
+	                    END_IF;
+	                    
+	                    #speedTimeout := "FC_TimeElapsedMs"(
+	                                                        StartTck := #R.SpeedLostMs,
+	                                                        TimeoutMs := "TimeoutMs_Redler_SpeedPause",
+	                                                        ElapsedMs => #elapsedMs,
+	                                                        NowTck => #nowTck
+	                    );
+	                    
+	                    IF #speedTimeout THEN
+	                        #B.FLTCode := "FLT_NO_RUNFB";
+	                        #B.Status := "STS_FAULT";
+	                        #isFault := TRUE;
+	                    END_IF;
+	                END_IF;
+	                
+	                IF #B.Cmd = "CMD_STOP" THEN
+	                    #B.Status := "STS_STOPPING";
+	                END_IF;
+	                
+	            "STS_STOPPING":
+	                // Чекаємо зупинки датчика швидкості
+	                IF (NOT #R.DI_Speed_OK) THEN
+	                    #B.Status := "STS_IDLE";
+	                    #R.StartMs := 0;
+	                    #R.SpeedLostMs := 0;
+	                END_IF;
+	                
+	            ELSE
+	                #B.Status := "STS_IDLE";
+	        END_CASE;
+	        
+	    END_IF;
+	END_REGION
+	
+	
+	REGION "7) Формування виходу DO_Run"
+	    // DO_Run — похідний від фінального Status.
+	    // У FAULT / DISABLED / LOCAL -> FALSE автоматично.
+	    IF (#B.Status =  "STS_STARTING") OR (#B.Status =  "STS_RUNNING") THEN
+	        #R.DO_Run := TRUE;
+	    ELSE
+	        #R.DO_Run := FALSE;
+	    END_IF;
+	END_REGION
+	
 END_FUNCTION
+

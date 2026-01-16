@@ -47,21 +47,21 @@ BEGIN
     // ------------------------------------------------------------------
     // ARRANGE — базовий "здоровий" стан
     // ------------------------------------------------------------------
-    "DB_Mechs".Mechs[slot].DeviceType := "DB_Const".TYPE_REDLER;
+    "DB_Mechs".Mechs[slot].DeviceType := TYPE_REDLER;
     "DB_Mechs".Mechs[slot].TypedIndex := 0;
     "DB_Mechs".Mechs[slot].Enable_OK := TRUE;
     "DB_Mechs".Mechs[slot].LocalManual := FALSE;
-    "DB_Mechs".Mechs[slot].Cmd := "DB_Const".CMD_NONE;
+    "DB_Mechs".Mechs[slot].Cmd := CMD_NONE;
     "DB_Mechs".Mechs[slot].CmdParam1 := 0;
     "DB_Mechs".Mechs[slot].Force_Code := 0;
-    "DB_Mechs".Mechs[slot].OwnerCur := "DB_Const".OWNER_NONE;
+    "DB_Mechs".Mechs[slot].OwnerCur := OWNER_NONE;
     "DB_Mechs".Mechs[slot].OwnerCurId := 0;
-    "DB_Mechs".Mechs[slot].LastCmd := "DB_Const".CMD_NONE;
-    "DB_Mechs".Mechs[slot].FLTCode := "DB_Const".FLT_NONE;
-    "DB_Mechs".Mechs[slot].Status := "DB_Const".STS_IDLE;
+    "DB_Mechs".Mechs[slot].LastCmd := CMD_NONE;
+    "DB_Mechs".Mechs[slot].FLTCode := FLT_NONE;
+    "DB_Mechs".Mechs[slot].Status := STS_IDLE;
 
     "DB_PlcScada_MailBox".Req.Slot := slot;
-    "DB_PlcScada_MailBox".Req.Cmd := "DB_Const".CMD_NONE;
+    "DB_PlcScada_MailBox".Req.Cmd := CMD_NONE;
     "DB_PlcScada_MailBox".Req.Param1 := 0;
     "DB_PlcScada_MailBox".Req.Force_Code := 0;
     "DB_PlcScada_MailBox".Req.ReleaseOwner := FALSE;
@@ -101,7 +101,7 @@ BEGIN
 
         // A3: Слот не замаплений → ManualAllowed = FALSE
         3:
-            "DB_Mechs".Mechs[slot].DeviceType := "DB_Const".TYPE_NONE;
+            "DB_Mechs".Mechs[slot].DeviceType := TYPE_NONE;
             "DB_Mechs".Mechs[slot].TypedIndex := UINT#16#FFFF;
             Exp_ManualAllowed := FALSE;
 
@@ -112,7 +112,7 @@ BEGIN
 
             Exp_AckCommit := 1;
             Exp_AckOk := FALSE;
-            Exp_RejectCode := "DB_Const".MAN_REJ_SLOT_UNMAPPED;
+            Exp_RejectCode := MAN_REJ_SLOT_UNMAPPED;
             Exp_AckSlot := UINT#300;
 
         // B2: LocalManual слоту → Reject MAN_REJ_LOCAL_MANUAL
@@ -123,7 +123,7 @@ BEGIN
             Exp_ManualAllowed := FALSE;
             Exp_AckCommit := 1;
             Exp_AckOk := FALSE;
-            Exp_RejectCode := "DB_Const".MAN_REJ_LOCAL_MANUAL;
+            Exp_RejectCode := MAN_REJ_LOCAL_MANUAL;
             Exp_AckSlot := slot;
 
         // B3: Enable_OK = FALSE → Reject MAN_REJ_NOT_ENABLED
@@ -134,79 +134,79 @@ BEGIN
             Exp_ManualAllowed := FALSE;
             Exp_AckCommit := 1;
             Exp_AckOk := FALSE;
-            Exp_RejectCode := "DB_Const".MAN_REJ_NOT_ENABLED;
+            Exp_RejectCode := MAN_REJ_NOT_ENABLED;
             Exp_AckSlot := slot;
 
         // B4: Owner != NONE/SCADA → Reject MAN_REJ_OWNER_BUSY
         7:
-            "DB_Mechs".Mechs[slot].OwnerCur := "DB_Const".OWNER_ROUTE;
+            "DB_Mechs".Mechs[slot].OwnerCur := OWNER_ROUTE;
             "DB_Mechs".Mechs[slot].OwnerCurId := 2;
             "DB_PlcScada_MailBox".Req.Commit := 1;
 
             Exp_ManualAllowed := FALSE;
-            Exp_CurrentOwner := "DB_Const".OWNER_ROUTE;
+            Exp_CurrentOwner := OWNER_ROUTE;
             Exp_AckCommit := 1;
             Exp_AckOk := FALSE;
-            Exp_RejectCode := "DB_Const".MAN_REJ_OWNER_BUSY;
+            Exp_RejectCode := MAN_REJ_OWNER_BUSY;
             Exp_AckSlot := slot;
-            Exp_OwnerCur := "DB_Const".OWNER_ROUTE;
+            Exp_OwnerCur := OWNER_ROUTE;
             Exp_OwnerCurId := 2;
 
         // B5: Cmd = NONE → Reject MAN_REJ_CMD_INVALID
         8:
             "DB_PlcScada_MailBox".Req.Commit := 1;
-            "DB_PlcScada_MailBox".Req.Cmd := "DB_Const".CMD_NONE;
+            "DB_PlcScada_MailBox".Req.Cmd := CMD_NONE;
 
             Exp_AckCommit := 1;
             Exp_AckOk := FALSE;
-            Exp_RejectCode := "DB_Const".MAN_REJ_CMD_INVALID;
+            Exp_RejectCode := MAN_REJ_CMD_INVALID;
             Exp_AckSlot := slot;
 
         // C1: Команда OK → AckOk TRUE, Owner = SCADA, Cmd записано
         9:
             "DB_PlcScada_MailBox".Req.Commit := 1;
-            "DB_PlcScada_MailBox".Req.Cmd := "DB_Const".CMD_START;
+            "DB_PlcScada_MailBox".Req.Cmd := CMD_START;
             "DB_PlcScada_MailBox".Req.Param1 := 7;
 
             Exp_AckCommit := 1;
             Exp_AckOk := TRUE;
-            Exp_RejectCode := "DB_Const".MAN_REJ_OK;
+            Exp_RejectCode := MAN_REJ_OK;
             Exp_AckSlot := slot;
-            Exp_OwnerCur := "DB_Const".OWNER_SCADA;
+            Exp_OwnerCur := OWNER_SCADA;
             Exp_OwnerCurId := 0;
-            Exp_Cmd := "DB_Const".CMD_START;
+            Exp_Cmd := CMD_START;
             Exp_CmdParam1 := 7;
 
         // C2: ReleaseOwner OK → Owner NONE
         10:
-            "DB_Mechs".Mechs[slot].OwnerCur := "DB_Const".OWNER_SCADA;
+            "DB_Mechs".Mechs[slot].OwnerCur := OWNER_SCADA;
             "DB_Mechs".Mechs[slot].OwnerCurId := 0;
             "DB_PlcScada_MailBox".Req.ReleaseOwner := TRUE;
             "DB_PlcScada_MailBox".Req.Commit := 1;
 
             Exp_ManualAllowed := FALSE;
-            Exp_CurrentOwner := "DB_Const".OWNER_SCADA;
+            Exp_CurrentOwner := OWNER_SCADA;
             Exp_AckCommit := 1;
             Exp_AckOk := TRUE;
-            Exp_RejectCode := "DB_Const".MAN_REJ_OK;
+            Exp_RejectCode := MAN_REJ_OK;
             Exp_AckSlot := slot;
-            Exp_OwnerCur := "DB_Const".OWNER_NONE;
+            Exp_OwnerCur := OWNER_NONE;
             Exp_OwnerCurId := 0;
 
         // C3: ReleaseOwner FAIL (OwnerCurId != 0) → MAN_REJ_ARBITER_FAIL
         11:
-            "DB_Mechs".Mechs[slot].OwnerCur := "DB_Const".OWNER_SCADA;
+            "DB_Mechs".Mechs[slot].OwnerCur := OWNER_SCADA;
             "DB_Mechs".Mechs[slot].OwnerCurId := 9;
             "DB_PlcScada_MailBox".Req.ReleaseOwner := TRUE;
             "DB_PlcScada_MailBox".Req.Commit := 1;
 
             Exp_ManualAllowed := FALSE;
-            Exp_CurrentOwner := "DB_Const".OWNER_SCADA;
+            Exp_CurrentOwner := OWNER_SCADA;
             Exp_AckCommit := 1;
             Exp_AckOk := FALSE;
-            Exp_RejectCode := "DB_Const".MAN_REJ_ARBITER_FAIL;
+            Exp_RejectCode := MAN_REJ_ARBITER_FAIL;
             Exp_AckSlot := slot;
-            Exp_OwnerCur := "DB_Const".OWNER_SCADA;
+            Exp_OwnerCur := OWNER_SCADA;
             Exp_OwnerCurId := 9;
 
         ELSE

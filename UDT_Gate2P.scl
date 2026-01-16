@@ -3,10 +3,13 @@ STRUCT
     // ===== Дискретні входи/виходи (HAL / залізо) =====
     DI_Opened_OK    : BOOL;    // засувка відкрита (кінцевик)
     DI_Closed_OK    : BOOL;    // засувка закрита (кінцевик)
+	DI_Breaker_OK   : BOOL;    // автомат захисту
+
     DO_Open         : BOOL;    // команда відкрити
     DO_Close        : BOOL;    // команда закрити
 
     // ===== Стан/таймінги засувки =====
     MoveStartMs     : DINT;    // час початку руху (мітка)
+    UnknownPositionMs     : DINT;    
 END_STRUCT;
 END_TYPE

@@ -17,33 +17,33 @@ END_VAR
 
 BEGIN
     FOR i := 0 TO 255 DO
-        "DB_Mechs".Mechs[i].DeviceType := "DB_Const".TYPE_NONE;
+        "DB_Mechs".Mechs[i].DeviceType := TYPE_NONE;
         "DB_Mechs".Mechs[i].TypedIndex := UINT#16#FFFF;
     END_FOR;
     
     // === REDLERS ===
-    "DB_Mechs".Mechs[0].DeviceType := "DB_Const".TYPE_REDLER;
+    "DB_Mechs".Mechs[0].DeviceType := TYPE_REDLER;
     "DB_Mechs".Mechs[0].TypedIndex := 0;
 
-    "DB_Mechs".Mechs[1].DeviceType := "DB_Const".TYPE_REDLER;
+    "DB_Mechs".Mechs[1].DeviceType := TYPE_REDLER;
     "DB_Mechs".Mechs[1].TypedIndex := 1;
 
     // === NORIAS ===
-    "DB_Mechs".Mechs[50].DeviceType := "DB_Const".TYPE_NORIA;
+    "DB_Mechs".Mechs[50].DeviceType := TYPE_NORIA;
     "DB_Mechs".Mechs[50].TypedIndex := 0;
 
-    "DB_Mechs".Mechs[51].DeviceType := "DB_Const".TYPE_NORIA;
+    "DB_Mechs".Mechs[51].DeviceType := TYPE_NORIA;
     "DB_Mechs".Mechs[51].TypedIndex := 1;
 
     // === GATES ===
-    "DB_Mechs".Mechs[100].DeviceType := "DB_Const".TYPE_GATE2P;
+    "DB_Mechs".Mechs[100].DeviceType := TYPE_GATE2P;
     "DB_Mechs".Mechs[100].TypedIndex := 0;
 
-    "DB_Mechs".Mechs[101].DeviceType := "DB_Const".TYPE_GATE2P;
+    "DB_Mechs".Mechs[101].DeviceType := TYPE_GATE2P;
     "DB_Mechs".Mechs[101].TypedIndex := 1;
 
     // === FANS ===
-    "DB_Mechs".Mechs[150].DeviceType := "DB_Const".TYPE_FAN;
+    "DB_Mechs".Mechs[150].DeviceType := TYPE_FAN;
     "DB_Mechs".Mechs[150].TypedIndex := 0;
 
 END_FUNCTION

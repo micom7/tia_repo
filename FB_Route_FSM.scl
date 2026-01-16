@@ -47,11 +47,11 @@ BEGIN
     // =========================================================
     // Edge detection
     // =========================================================
-    startEdge  := (Cmd.RC_Cmd = "DB_Const_Routes".RT_CMD_START)
-                  AND (lastCmd <> "DB_Const_Routes".RT_CMD_START);
+    startEdge  := (Cmd.RC_Cmd = RT_CMD_START)
+                  AND (lastCmd <> RT_CMD_START);
 
-    stopOpEdge := (Cmd.RC_Cmd = "DB_Const_Routes".RT_CMD_STOP_OP)
-                  AND (lastCmd <> "DB_Const_Routes".RT_CMD_STOP_OP);
+    stopOpEdge := (Cmd.RC_Cmd = RT_CMD_STOP_OP)
+                  AND (lastCmd <> RT_CMD_STOP_OP);
 
     lastCmd := Cmd.RC_Cmd;
 
@@ -66,7 +66,7 @@ BEGIN
     // Init state
     // =========================================================
     IF Fsm.RF_State = 0 THEN
-        Fsm.RF_State := "DB_Const_Routes".ROUTE_STS_IDLE;
+        Fsm.RF_State := ROUTE_STS_IDLE;
     END_IF;
 
     // =========================================================
@@ -102,9 +102,9 @@ BEGIN
 
                 tmpOk := "FC_ArbiterMech"(
                     LocalManualGlobal := LocalManualGlobal,
-                    OwnerReq          := "DB_Const".OWNER_ROUTE,
+                    OwnerReq          := OWNER_ROUTE,
                     OwnerReqId        := USINT_TO_UINT(RouteIdx),
-                    ReqCmd            := "DB_Const".CMD_NONE,
+                    ReqCmd            := CMD_NONE,
                     ReqParam1         := 0,
                     ReleaseOwner      := TRUE,
                     LockOnly          := FALSE,
@@ -113,8 +113,8 @@ BEGIN
             END_FOR;
         END_IF;
 
-        Fsm.RF_State      := "DB_Const_Routes".ROUTE_STS_ABORTED;
-        Fsm.RF_ResultCode := "DB_Const_Routes".ROUTE_ABRT_BY_SAFETY;
+        Fsm.RF_State      := ROUTE_STS_ABORTED;
+        Fsm.RF_ResultCode := ROUTE_ABRT_BY_SAFETY;
     END_IF;
 
     // =========================================================
@@ -123,70 +123,70 @@ BEGIN
     IF NOT safetyHit THEN
 
         // ---------------- IDLE ----------------
-        IF Fsm.RF_State = "DB_Const_Routes".ROUTE_STS_IDLE THEN
+        IF Fsm.RF_State = ROUTE_STS_IDLE THEN
 
             IF startEdge THEN
                 Fsm.RF_ResultCode   := 0;
                 Fsm.RF_AbortLatched := 0;
                 Fsm.RF_ActiveStep   := 0;
-                Fsm.RF_StepSts      := "DB_Const_Routes".STEP_STS_IDLE;
-                Fsm.RF_State        := "DB_Const_Routes".ROUTE_STS_VALIDATING;
+                Fsm.RF_StepSts      := STEP_STS_IDLE;
+                Fsm.RF_State        := ROUTE_STS_VALIDATING;
             END_IF;
 
         // ---------------- VALIDATING ----------------
-        ELSIF Fsm.RF_State = "DB_Const_Routes".ROUTE_STS_VALIDATING THEN
+        ELSIF Fsm.RF_State = ROUTE_STS_VALIDATING THEN
 
             IF startEdge THEN
-                Fsm.RF_State      := "DB_Const_Routes".ROUTE_STS_REJECTED;
-                Fsm.RF_ResultCode := "DB_Const_Routes".ROUTE_REJ_DUPLICATE_START;
+                Fsm.RF_State      := ROUTE_STS_REJECTED;
+                Fsm.RF_ResultCode := ROUTE_REJ_DUPLICATE_START;
 
             ELSE
                 IF stepCnt <= 0 THEN
-                    Fsm.RF_State      := "DB_Const_Routes".ROUTE_STS_REJECTED;
-                    Fsm.RF_ResultCode := "DB_Const_Routes".ROUTE_REJ_BY_CONTRACT;
+                    Fsm.RF_State      := ROUTE_STS_REJECTED;
+                    Fsm.RF_ResultCode := ROUTE_REJ_BY_CONTRACT;
                 ELSE
                     FOR i := 0 TO stepCnt - 1 DO
                         slot := Cmd.RC_Steps[i].RS_Slot;
 
                         stepOk := TRUE;
 
-                        IF (Cmd.RC_Steps[i].RS_Action <> "DB_Const_Routes".RS_ACT_START)
-                           AND (Cmd.RC_Steps[i].RS_Action <> "DB_Const_Routes".RS_ACT_STOP) THEN
+                        IF (Cmd.RC_Steps[i].RS_Action <> RS_ACT_START)
+                           AND (Cmd.RC_Steps[i].RS_Action <> RS_ACT_STOP) THEN
                             stepOk := FALSE;
                         END_IF;
 
-                        IF (Cmd.RC_Steps[i].RS_Wait <> "DB_Const_Routes".RS_WAIT_RUNNING)
-                           AND (Cmd.RC_Steps[i].RS_Wait <> "DB_Const_Routes".RS_WAIT_STOPPED) THEN
+                        IF (Cmd.RC_Steps[i].RS_Wait <> RS_WAIT_RUNNING)
+                           AND (Cmd.RC_Steps[i].RS_Wait <> RS_WAIT_STOPPED) THEN
                             stepOk := FALSE;
                         END_IF;
 
                         IF NOT stepOk THEN
-                            Fsm.RF_State      := "DB_Const_Routes".ROUTE_STS_REJECTED;
-                            Fsm.RF_ResultCode := "DB_Const_Routes".ROUTE_REJ_BY_CONTRACT;
+                            Fsm.RF_State      := ROUTE_STS_REJECTED;
+                            Fsm.RF_ResultCode := ROUTE_REJ_BY_CONTRACT;
                             EXIT;
 
-                        ELSIF Mechs[slot].OwnerCur <> "DB_Const".OWNER_NONE THEN
-                            Fsm.RF_State      := "DB_Const_Routes".ROUTE_STS_REJECTED;
-                            Fsm.RF_ResultCode := "DB_Const_Routes".ROUTE_REJ_BY_OWNER;
+                        ELSIF Mechs[slot].OwnerCur <> OWNER_NONE THEN
+                            Fsm.RF_State      := ROUTE_STS_REJECTED;
+                            Fsm.RF_ResultCode := ROUTE_REJ_BY_OWNER;
                             EXIT;
 
                         ELSIF (NOT Mechs[slot].Enable_OK)
                               OR Mechs[slot].LocalManual
                               OR (Mechs[slot].FLTCode <> 0) THEN
-                            Fsm.RF_State      := "DB_Const_Routes".ROUTE_STS_REJECTED;
-                            Fsm.RF_ResultCode := "DB_Const_Routes".ROUTE_REJ_NOT_READY;
+                            Fsm.RF_State      := ROUTE_STS_REJECTED;
+                            Fsm.RF_ResultCode := ROUTE_REJ_NOT_READY;
                             EXIT;
                         END_IF;
                     END_FOR;
 
-                    IF Fsm.RF_State = "DB_Const_Routes".ROUTE_STS_VALIDATING THEN
-                        Fsm.RF_State := "DB_Const_Routes".ROUTE_STS_STARTING;
+                    IF Fsm.RF_State = ROUTE_STS_VALIDATING THEN
+                        Fsm.RF_State := ROUTE_STS_STARTING;
                     END_IF;
                 END_IF;
             END_IF;
 
         // ---------------- STARTING (atomic lock-all via arbiter) ----------------
-        ELSIF Fsm.RF_State = "DB_Const_Routes".ROUTE_STS_STARTING THEN
+        ELSIF Fsm.RF_State = ROUTE_STS_STARTING THEN
 
             lockOkAll := TRUE;
 
@@ -196,9 +196,9 @@ BEGIN
 
                     lockOkOne := "FC_ArbiterMech"(
                         LocalManualGlobal := LocalManualGlobal,
-                        OwnerReq          := "DB_Const".OWNER_ROUTE,
+                        OwnerReq          := OWNER_ROUTE,
                         OwnerReqId        := USINT_TO_UINT(RouteIdx),
-                        ReqCmd            := "DB_Const".CMD_NONE,
+                        ReqCmd            := CMD_NONE,
                         ReqParam1         := 0,
                         ReleaseOwner      := FALSE,
                         LockOnly          := TRUE,
@@ -221,9 +221,9 @@ BEGIN
 
                         tmpOk := "FC_ArbiterMech"(
                             LocalManualGlobal := LocalManualGlobal,
-                            OwnerReq          := "DB_Const".OWNER_ROUTE,
+                            OwnerReq          := OWNER_ROUTE,
                             OwnerReqId        := USINT_TO_UINT(RouteIdx),
-                            ReqCmd            := "DB_Const".CMD_NONE,
+                            ReqCmd            := CMD_NONE,
                             ReqParam1         := 0,
                             ReleaseOwner      := TRUE,
                             LockOnly          := FALSE,
@@ -232,26 +232,26 @@ BEGIN
                     END_FOR;
                 END_IF;
 
-                Fsm.RF_State      := "DB_Const_Routes".ROUTE_STS_REJECTED;
-                Fsm.RF_ResultCode := "DB_Const_Routes".ROUTE_REJ_BY_OWNER;
+                Fsm.RF_State      := ROUTE_STS_REJECTED;
+                Fsm.RF_ResultCode := ROUTE_REJ_BY_OWNER;
             ELSE
-                Fsm.RF_State := "DB_Const_Routes".ROUTE_STS_RUNNING;
+                Fsm.RF_State := ROUTE_STS_RUNNING;
             END_IF;
 
         // ---------------- RUNNING ----------------
-        ELSIF Fsm.RF_State = "DB_Const_Routes".ROUTE_STS_RUNNING THEN
+        ELSIF Fsm.RF_State = ROUTE_STS_RUNNING THEN
 
             IF stopOpEdge THEN
-                Fsm.RF_AbortLatched := "DB_Const_Routes".ROUTE_ABRT_BY_OPERATOR;
-                Fsm.RF_State := "DB_Const_Routes".ROUTE_STS_STOPPING;
+                Fsm.RF_AbortLatched := ROUTE_ABRT_BY_OPERATOR;
+                Fsm.RF_State := ROUTE_STS_STOPPING;
 
             ELSIF anyLocal THEN
-                Fsm.RF_AbortLatched := "DB_Const_Routes".ROUTE_ABRT_BY_LOCAL;
-                Fsm.RF_State := "DB_Const_Routes".ROUTE_STS_STOPPING;
+                Fsm.RF_AbortLatched := ROUTE_ABRT_BY_LOCAL;
+                Fsm.RF_State := ROUTE_STS_STOPPING;
 
             ELSIF anyFault THEN
-                Fsm.RF_AbortLatched := "DB_Const_Routes".ROUTE_ABRT_BY_FAULT;
-                Fsm.RF_State := "DB_Const_Routes".ROUTE_STS_STOPPING;
+                Fsm.RF_AbortLatched := ROUTE_ABRT_BY_FAULT;
+                Fsm.RF_State := ROUTE_STS_STOPPING;
 
             ELSE
                 stepIdx := USINT_TO_INT(Fsm.RF_ActiveStep);
@@ -264,9 +264,9 @@ BEGIN
 
                             tmpOk := "FC_ArbiterMech"(
                                 LocalManualGlobal := LocalManualGlobal,
-                                OwnerReq          := "DB_Const".OWNER_ROUTE,
+                                OwnerReq          := OWNER_ROUTE,
                                 OwnerReqId        := USINT_TO_UINT(RouteIdx),
-                                ReqCmd            := "DB_Const".CMD_NONE,
+                                ReqCmd            := CMD_NONE,
                                 ReqParam1         := 0,
                                 ReleaseOwner      := TRUE,
                                 LockOnly          := FALSE,
@@ -275,19 +275,19 @@ BEGIN
                         END_FOR;
                     END_IF;
 
-                    Fsm.RF_State      := "DB_Const_Routes".ROUTE_STS_DONE;
-                    Fsm.RF_ResultCode := "DB_Const_Routes".ROUTE_DONE_OK;
+                    Fsm.RF_State      := ROUTE_STS_DONE;
+                    Fsm.RF_ResultCode := ROUTE_DONE_OK;
 
                 ELSE
                     slot := Cmd.RC_Steps[stepIdx].RS_Slot;
 
                     // request START/STOP via arbiter
-                    IF Cmd.RC_Steps[stepIdx].RS_Action = "DB_Const_Routes".RS_ACT_START THEN
+                    IF Cmd.RC_Steps[stepIdx].RS_Action = RS_ACT_START THEN
                         cmdOk := "FC_ArbiterMech"(
                             LocalManualGlobal := LocalManualGlobal,
-                            OwnerReq          := "DB_Const".OWNER_ROUTE,
+                            OwnerReq          := OWNER_ROUTE,
                             OwnerReqId        := USINT_TO_UINT(RouteIdx),
-                            ReqCmd            := "DB_Const".CMD_START,
+                            ReqCmd            := CMD_START,
                             ReqParam1         := 0,
                             ReleaseOwner      := FALSE,
                             LockOnly          := FALSE,
@@ -296,9 +296,9 @@ BEGIN
                     ELSE
                         cmdOk := "FC_ArbiterMech"(
                             LocalManualGlobal := LocalManualGlobal,
-                            OwnerReq          := "DB_Const".OWNER_ROUTE,
+                            OwnerReq          := OWNER_ROUTE,
                             OwnerReqId        := USINT_TO_UINT(RouteIdx),
-                            ReqCmd            := "DB_Const".CMD_STOP,
+                            ReqCmd            := CMD_STOP,
                             ReqParam1         := 0,
                             ReleaseOwner      := FALSE,
                             LockOnly          := FALSE,
@@ -311,21 +311,21 @@ BEGIN
                         // якщо в константах є ABRT_BY_OWNER — став його.
                         // якщо ще нема — поки що ставимо OPERATOR (щоб не ламати DB_Const_Routes).
                         // Рекомендація: додати ROUTE_ABRT_BY_OWNER.
-                        Fsm.RF_AbortLatched := "DB_Const_Routes".ROUTE_ABRT_BY_OPERATOR;
-                        Fsm.RF_State := "DB_Const_Routes".ROUTE_STS_STOPPING;
+                        Fsm.RF_AbortLatched := ROUTE_ABRT_BY_OPERATOR;
+                        Fsm.RF_State := ROUTE_STS_STOPPING;
 
                     ELSE
-                        Fsm.RF_StepSts := "DB_Const_Routes".STEP_STS_WORK;
+                        Fsm.RF_StepSts := STEP_STS_WORK;
 
-                        IF Cmd.RC_Steps[stepIdx].RS_Wait = "DB_Const_Routes".RS_WAIT_RUNNING THEN
-                            IF Mechs[slot].Status = "DB_Const".STS_RUNNING THEN
+                        IF Cmd.RC_Steps[stepIdx].RS_Wait = RS_WAIT_RUNNING THEN
+                            IF Mechs[slot].Status = STS_RUNNING THEN
                                 Fsm.RF_ActiveStep := Fsm.RF_ActiveStep + 1;
-                                Fsm.RF_StepSts := "DB_Const_Routes".STEP_STS_DONE;
+                                Fsm.RF_StepSts := STEP_STS_DONE;
                             END_IF;
                         ELSE
-                            IF Mechs[slot].Status = "DB_Const".STS_IDLE THEN
+                            IF Mechs[slot].Status = STS_IDLE THEN
                                 Fsm.RF_ActiveStep := Fsm.RF_ActiveStep + 1;
-                                Fsm.RF_StepSts := "DB_Const_Routes".STEP_STS_DONE;
+                                Fsm.RF_StepSts := STEP_STS_DONE;
                             END_IF;
                         END_IF;
                     END_IF;
@@ -333,7 +333,7 @@ BEGIN
             END_IF;
 
         // ---------------- STOPPING ----------------
-        ELSIF Fsm.RF_State = "DB_Const_Routes".ROUTE_STS_STOPPING THEN
+        ELSIF Fsm.RF_State = ROUTE_STS_STOPPING THEN
 
             // reverse order stop via arbiter
             IF stepCnt > 0 THEN
@@ -342,9 +342,9 @@ BEGIN
 
                     tmpOk := "FC_ArbiterMech"(
                         LocalManualGlobal := LocalManualGlobal,
-                        OwnerReq          := "DB_Const".OWNER_ROUTE,
+                        OwnerReq          := OWNER_ROUTE,
                         OwnerReqId        := USINT_TO_UINT(RouteIdx),
-                        ReqCmd            := "DB_Const".CMD_STOP,
+                        ReqCmd            := CMD_STOP,
                         ReqParam1         := 0,
                         ReleaseOwner      := FALSE,
                         LockOnly          := FALSE,
@@ -359,7 +359,7 @@ BEGIN
             IF stepCnt > 0 THEN
                 FOR i := 0 TO stepCnt - 1 DO
                     slot := Cmd.RC_Steps[i].RS_Slot;
-                    IF Mechs[slot].Status <> "DB_Const".STS_IDLE THEN
+                    IF Mechs[slot].Status <> STS_IDLE THEN
                         allStopped := FALSE;
                     END_IF;
                 END_FOR;
@@ -373,9 +373,9 @@ BEGIN
 
                         tmpOk := "FC_ArbiterMech"(
                             LocalManualGlobal := LocalManualGlobal,
-                            OwnerReq          := "DB_Const".OWNER_ROUTE,
+                            OwnerReq          := OWNER_ROUTE,
                             OwnerReqId        := USINT_TO_UINT(RouteIdx),
-                            ReqCmd            := "DB_Const".CMD_NONE,
+                            ReqCmd            := CMD_NONE,
                             ReqParam1         := 0,
                             ReleaseOwner      := TRUE,
                             LockOnly          := FALSE,
@@ -384,26 +384,26 @@ BEGIN
                     END_FOR;
                 END_IF;
 
-                Fsm.RF_State := "DB_Const_Routes".ROUTE_STS_ABORTED;
+                Fsm.RF_State := ROUTE_STS_ABORTED;
 
                 IF Fsm.RF_AbortLatched = 0 THEN
-                    Fsm.RF_AbortLatched := "DB_Const_Routes".ROUTE_ABRT_BY_OPERATOR;
+                    Fsm.RF_AbortLatched := ROUTE_ABRT_BY_OPERATOR;
                 END_IF;
 
                 Fsm.RF_ResultCode := Fsm.RF_AbortLatched;
             END_IF;
 
         // ---------------- FINAL ----------------
-        ELSIF (Fsm.RF_State = "DB_Const_Routes".ROUTE_STS_DONE)
-           OR (Fsm.RF_State = "DB_Const_Routes".ROUTE_STS_REJECTED)
-           OR (Fsm.RF_State = "DB_Const_Routes".ROUTE_STS_ABORTED) THEN
+        ELSIF (Fsm.RF_State = ROUTE_STS_DONE)
+           OR (Fsm.RF_State = ROUTE_STS_REJECTED)
+           OR (Fsm.RF_State = ROUTE_STS_ABORTED) THEN
 
-            IF Cmd.RC_Cmd = "DB_Const_Routes".RT_CMD_NONE THEN
-                Fsm.RF_State := "DB_Const_Routes".ROUTE_STS_IDLE;
+            IF Cmd.RC_Cmd = RT_CMD_NONE THEN
+                Fsm.RF_State := ROUTE_STS_IDLE;
             END_IF;
 
         ELSE
-            Fsm.RF_State := "DB_Const_Routes".ROUTE_STS_IDLE;
+            Fsm.RF_State := ROUTE_STS_IDLE;
         END_IF;
 
     END_IF;

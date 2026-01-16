@@ -1,103 +1,208 @@
-FUNCTION "FC_Gate2P" : VOID
+﻿FUNCTION "FC_Gate2P" : Void
 { S7_Optimized_Access := 'TRUE' }
-VERSION : 1.0
+VERSION : 0.1
+   VAR_IN_OUT 
+      G : "UDT_Gate2P";   // // Типізований редлер (I/O + таймінги)
+      B : "UDT_BaseMechanism";   // // Базовий механізм слоту (Cmd/Status/FLT/Owner..
+   END_VAR
 
-// ============================================================================
-// FC_Gate2P - Логіка засувки (ЗАГЛУШКА)
-// ============================================================================
-// TODO: Реалізувати повну логіку засувки з таймаутами руху
-// ============================================================================
+   VAR_TEMP 
+      moveTimeout : Bool;
+      UnknownPosTimeout : Bool;
+      elapsedMs : DInt;
+      nowTck : DInt;
+      forceBreaker : Bool;
+      forceGateMoveTimeout : Bool;
+      forceGatePosUnknown : Bool;
+      isFault : Bool;
+      isBlocked : Bool;
+      isIndefinedPosition : Bool;
+      targetReached : Bool;
+      paramValid : Bool;
+   END_VAR
 
-VAR_IN_OUT
-    G : "UDT_Gate2P";            // типізована засувка (I/O + таймінги)
-    B : "UDT_BaseMechanism";   // базовий механізм слоту (Cmd/Status/FLT/Owner...)
-END_VAR
-
-VAR_TEMP
-    isFault   : BOOL;
-    isBlocked : BOOL;
-END_VAR
 
 BEGIN
-    // =========================================================
-    // ЗАГЛУШКА: базова логіка без повної FSM
-    // =========================================================
-    
-    // 1. RESET
-    IF B.Cmd = "DB_Const".CMD_RESET THEN
-        B.FLTCode := "DB_Const".FLT_NONE;
-        B.Status  := "DB_Const".STS_IDLE;
-        G.MoveStartMs := 0;
-        B.LastCmd := B.Cmd;
-    END_IF;
-    
-    isFault := (B.Status = "DB_Const".STS_FAULT);
-    
-    // 2. Enable / LocalManual
-    IF NOT B.Enable_OK THEN
-        B.Status := "DB_Const".STS_DISABLED;
-        B.OwnerCur := 0;
-        B.OwnerCurId := 0;
-        G.MoveStartMs := 0;
-        
-    ELSIF B.LocalManual THEN
-        B.Status := "DB_Const".STS_LOCAL;
-        B.OwnerCur := 0;
-        B.OwnerCurId := 0;
-        G.MoveStartMs := 0;
-    END_IF;
-    
-    isBlocked := (B.Status = "DB_Const".STS_DISABLED) OR (B.Status = "DB_Const".STS_LOCAL);
-    
-    // 3. Фіксація команди
-    IF B.Cmd <> "DB_Const".CMD_NONE THEN
-        B.LastCmd := B.Cmd;
-    END_IF;
-    
-    // 4. Проста FSM (заглушка)
-    IF (NOT isFault) AND (NOT isBlocked) THEN
-        
-        // CMD_START = відкрити
-        IF B.Cmd = "DB_Const".CMD_START THEN
-            IF B.Status = "DB_Const".STS_IDLE THEN
-                B.Status := "DB_Const".STS_STARTING;
-                G.MoveStartMs := TIME_TCK();
-            END_IF;
-        END_IF;
-        
-        // CMD_STOP = закрити
-        IF B.Cmd = "DB_Const".CMD_STOP THEN
-            IF (B.Status = "DB_Const".STS_STARTING) OR (B.Status = "DB_Const".STS_RUNNING) THEN
-                B.Status := "DB_Const".STS_STOPPING;
-                G.MoveStartMs := TIME_TCK();
-            END_IF;
-        END_IF;
-        
-        // Переходи станів (спрощені)
-        IF B.Status = "DB_Const".STS_STARTING THEN
-            IF G.DI_Opened_OK THEN
-                B.Status := "DB_Const".STS_RUNNING;  // відкрита
-                G.MoveStartMs := 0;
-            END_IF;
-        ELSIF B.Status = "DB_Const".STS_STOPPING THEN
-            IF G.DI_Closed_OK THEN
-                B.Status := "DB_Const".STS_IDLE;  // закрита
-                G.MoveStartMs := 0;
-            END_IF;
-        END_IF;
-        
-    END_IF;
-    
-    // 5. Формування виходів
-    IF B.Status = "DB_Const".STS_STARTING THEN
-        G.DO_Open := TRUE;
-        G.DO_Close := FALSE;
-    ELSIF B.Status = "DB_Const".STS_STOPPING THEN
-        G.DO_Open := FALSE;
-        G.DO_Close := TRUE;
-    ELSE
-        G.DO_Open := FALSE;
-        G.DO_Close := FALSE;
-    END_IF;
-    
+	// ============================================================================
+	// FC_Gate2P (Refactored to CASE)
+	// ============================================================================
+	
+	REGION "Стани та формування"
+	    #forceBreaker := (#B.Force_Code AND 2) <> 0;
+	    #forceGateMoveTimeout := (#B.Force_Code AND 32) <> 0;
+	    #forceGatePosUnknown := (#B.Force_Code AND 64) <> 0;
+	END_REGION
+	
+	REGION "1) RESET та лач FAULT"
+	    IF #B.Cmd = "CMD_RESET" THEN
+	        #B.FLTCode := "FLT_NONE";
+	        #B.Status := "STS_IDLE";
+	        #G.MoveStartMs := 0;
+	        #G.UnknownPositionMs := 0;
+	        #B.LastCmd := #B.Cmd;
+	    END_IF;
+	    
+	    #isFault := (#B.Status = "STS_FAULT");
+	END_REGION
+	
+	REGION "Виведений стан (from DI)"
+	    #isIndefinedPosition := #G.DI_Opened_OK OR #G.DI_Closed_OK;
+	END_REGION
+	
+	REGION "2) Передумови керування (Enable / Ручний)"
+	    IF NOT #B.Enable_OK THEN
+	        #B.Status := "STS_DISABLED";
+	        #B.OwnerCur := 0;
+	        #B.OwnerCurId := 0;
+	        #G.MoveStartMs := 0;
+	        #G.UnknownPositionMs := 0;
+	    ELSIF #B.LocalManual THEN
+	        #B.Status := "STS_LOCAL";
+	        #B.OwnerCur := 0;
+	        #B.OwnerCurId := 0;
+	        #G.MoveStartMs := 0;
+	        #G.UnknownPositionMs := 0;
+	    END_IF;
+	    
+	    #isBlocked := (#B.Status = "STS_DISABLED") OR (#B.Status = "STS_LOCAL");
+	END_REGION
+	
+	REGION "3) Фіксація останньої команди"
+	    IF #B.Cmd <> "CMD_NONE" THEN
+	        #B.LastCmd := #B.Cmd;
+	    END_IF;
+	END_REGION
+	
+	REGION "4) Місцеві аварії"
+	    IF (NOT #isFault) AND (NOT #isBlocked) THEN
+	        IF (NOT #G.DI_Breaker_OK) AND (NOT #forceBreaker) THEN
+	            #B.FLTCode := "FLT_BREAKER";
+	            #B.Status := "STS_FAULT";
+	        END_IF;
+	        #isFault := (#B.Status = "STS_FAULT");
+	    END_IF;
+	END_REGION
+	
+	REGION "5 & 6) Машина станів (FSM) та обробка команд"
+	    IF (NOT #isFault) AND (NOT #isBlocked) THEN
+	        
+	        CASE #B.Status OF
+	                
+	            "STS_IDLE":
+	                // Логіка перевірки невідомої позиції
+	                IF NOT #isIndefinedPosition THEN
+	                    IF #G.UnknownPositionMs = 0 THEN
+	                        #G.UnknownPositionMs := TIME_TCK();
+	                    END_IF;
+	                    
+	                    IF NOT #forceGatePosUnknown THEN
+	                        #UnknownPosTimeout := "FC_TimeElapsedMs"(
+	                                                                 StartTck := #G.UnknownPositionMs,
+	                                                                 TimeoutMs := "TimeoutMs_Gate_Position_Unknown",
+	                                                                 ElapsedMs => #elapsedMs,
+	                                                                 NowTck => #nowTck
+	                        );
+	                        IF #UnknownPosTimeout THEN
+	                            #B.FLTCode := "FLT_GATE_POS_UNKNOWN";
+	                            #B.Status := "STS_FAULT";
+	                            #isFault := TRUE;
+	                        END_IF;
+	                    END_IF;
+	                ELSE
+	                    #G.UnknownPositionMs := 0;
+	                END_IF;
+	                
+	                // Обробка команди START
+	                IF #B.Cmd = "CMD_START" THEN
+	                    // Проверяем, не совпадает ли целевая позиция с текущей
+	                    #targetReached := (#B.CmdParam1 = "CMD_GATE_OPEN" AND #G.DI_Opened_OK) OR
+	                    (#B.CmdParam1 = "CMD_GATE_CLOSED" AND #G.DI_Closed_OK);
+	                    
+	                    // Проверяем валидность параметра (должен быть либо OPEN, либо CLOSED)
+	                    #paramValid := (#B.CmdParam1 = "CMD_GATE_OPEN") OR (#B.CmdParam1 = "CMD_GATE_CLOSED");
+	                    
+	                    IF #paramValid AND NOT #targetReached THEN
+	                        #B.Status := "STS_STARTING";
+	                        #G.MoveStartMs := TIME_TCK();
+	                    ELSE
+	                        #B.Status := "STS_IDLE";
+	                    END_IF;
+	                END_IF;
+	                
+	            "STS_STARTING":
+	                // Перехід у RUNNING або повернення в IDLE
+	                IF #B.CmdParam1 = "CMD_GATE_OPEN" THEN
+	                    IF NOT #G.DI_Opened_OK THEN
+	                        #B.Status := "STS_RUNNING";
+	                    ELSE
+	                        #B.Status := "STS_IDLE";
+	                    END_IF;
+	                ELSIF #B.CmdParam1 = "CMD_GATE_CLOSED" THEN
+	                    IF NOT #G.DI_Closed_OK THEN
+	                        #B.Status := "STS_RUNNING";
+	                    ELSE
+	                        #B.Status := "STS_IDLE";
+	                    END_IF;
+	                ELSE
+	                    #B.Status := "STS_IDLE";
+	                END_IF;
+	                
+	                // Можливість STOP під час старту
+	                IF #B.Cmd = "CMD_STOP" THEN
+	                    #B.Status := "STS_STOPPING";
+	                END_IF;
+	                
+	            "STS_RUNNING":
+	                // Таймер таймауту руху
+	                IF NOT #forceGateMoveTimeout THEN
+	                    #moveTimeout := "FC_TimeElapsedMs"(
+	                                                       StartTck := #G.MoveStartMs,
+	                                                       TimeoutMs := "TimeoutMs_Gate_Move",
+	                                                       ElapsedMs => #elapsedMs,
+	                                                       NowTck => #nowTck
+	                    );
+	                    IF #moveTimeout THEN
+	                        #B.FLTCode := "FLT_GATE_MOVE_TIMEOUT";
+	                        #B.Status := "STS_FAULT";
+	                        #isFault := TRUE;
+	                    END_IF;
+	                END_IF;
+	                
+	                // Умови зупинки (Команда STOP або досягнення датчика)
+	                IF #B.Cmd = "CMD_STOP" THEN
+	                    #B.Status := "STS_STOPPING";
+	                ELSIF (#B.CmdParam1 = "CMD_GATE_OPEN" AND #G.DI_Opened_OK) OR
+	                    (#B.CmdParam1 = "CMD_GATE_CLOSED" AND #G.DI_Closed_OK) THEN
+	                    #B.Status := "STS_STOPPING";
+	                END_IF;
+	                
+	                // Захист: якщо команда зникла (CmdParam1 став некоректним), йдемо в IDLE
+	                IF #B.CmdParam1 <> "CMD_GATE_OPEN" AND #B.CmdParam1 <> "CMD_GATE_CLOSED" THEN
+	                    #B.Status := "STS_IDLE";
+	                END_IF;
+	                
+	            "STS_STOPPING":
+	                IF #isIndefinedPosition THEN
+	                    #B.Status := "STS_IDLE";
+	                    #G.MoveStartMs := 0;
+	                    #G.UnknownPositionMs := 0;
+	                END_IF;
+	                
+	            ELSE
+	                #B.Status := "STS_IDLE";
+	        END_CASE;
+	        
+	    END_IF;
+	END_REGION
+	
+	REGION "7) Формування виходів DO"
+	    IF (#B.Status = "STS_STARTING") OR (#B.Status = "STS_RUNNING") THEN
+	        #G.DO_Open := (#B.CmdParam1 = "CMD_GATE_OPEN");
+	        #G.DO_Close := (#B.CmdParam1 = "CMD_GATE_CLOSED");
+	    ELSE
+	        #G.DO_Open := FALSE;
+	        #G.DO_Close := FALSE;
+	    END_IF;
+	END_REGION
 END_FUNCTION
+

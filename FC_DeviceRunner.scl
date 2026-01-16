@@ -27,7 +27,7 @@ END_VAR
 BEGIN
     // === REDLERS (slot 0..1) ===
     FOR slot := 0 TO 1 DO
-        IF Mechs[slot].DeviceType = "DB_Const".TYPE_REDLER THEN
+        IF Mechs[slot].DeviceType = TYPE_REDLER THEN
             idx := Mechs[slot].TypedIndex;
             "FC_Redler"(R := Redler[idx], B := Mechs[slot]);
         END_IF;
@@ -35,7 +35,7 @@ BEGIN
     
     // === NORIAS (slot 50..51) ===
     FOR slot := 50 TO 51 DO
-        IF Mechs[slot].DeviceType = "DB_Const".TYPE_NORIA THEN
+        IF Mechs[slot].DeviceType = TYPE_NORIA THEN
             idx := Mechs[slot].TypedIndex;
             "FC_Noria"(N := Noria[idx], B := Mechs[slot]);
         END_IF;
@@ -43,7 +43,7 @@ BEGIN
     
     // === GATES (slot 100..101) ===
     FOR slot := 100 TO 101 DO
-        IF Mechs[slot].DeviceType = "DB_Const".TYPE_GATE2P THEN
+        IF Mechs[slot].DeviceType = TYPE_GATE2P THEN
             idx := Mechs[slot].TypedIndex;
             "FC_Gate2P"(G := Gate[idx], B := Mechs[slot]);
         END_IF;
@@ -51,7 +51,7 @@ BEGIN
     
     // === FANS (slot 150..150) ===
     FOR slot := 150 TO 150 DO
-        IF Mechs[slot].DeviceType = "DB_Const".TYPE_FAN THEN
+        IF Mechs[slot].DeviceType = TYPE_FAN THEN
             idx := Mechs[slot].TypedIndex;
             "FC_Fan"(F := Fan[idx], B := Mechs[slot]);
         END_IF;

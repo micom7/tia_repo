@@ -25,13 +25,13 @@ BEGIN
     // =========================================================
     FOR i := 0 TO 255 DO
         
-        isMapped := ("DB_Mechs".Mechs[i].DeviceType <> "DB_Const".TYPE_NONE)
+        isMapped := ("DB_Mechs".Mechs[i].DeviceType <> TYPE_NONE)
                     AND ("DB_Mechs".Mechs[i].TypedIndex <> UINT#16#FFFF);
         
         isLocal := LocalManualGlobal OR "DB_Mechs".Mechs[i].LocalManual;
         
         IF isMapped THEN
-            allowed := ("DB_Mechs".Mechs[i].OwnerCur = "DB_Const".OWNER_NONE)
+            allowed := ("DB_Mechs".Mechs[i].OwnerCur = OWNER_NONE)
                        AND (NOT isLocal)
                        AND ("DB_Mechs".Mechs[i].Enable_OK);
         ELSE
@@ -62,43 +62,43 @@ BEGIN
     IF slot > 255 THEN
         "DB_PlcScada_MailBox".Ack.AckCommit  := commitIn;
         "DB_PlcScada_MailBox".Ack.AckOk      := FALSE;
-        "DB_PlcScada_MailBox".Ack.RejectCode := "DB_Const".MAN_REJ_SLOT_UNMAPPED;
+        "DB_PlcScada_MailBox".Ack.RejectCode := MAN_REJ_SLOT_UNMAPPED;
         "DB_PlcScada_MailBox".Ack.Slot       := slot;
         RETURN;
     END_IF;
     
     // Перевірка мапінгу
-    isMapped := ("DB_Mechs".Mechs[slot].DeviceType <> "DB_Const".TYPE_NONE)
+    isMapped := ("DB_Mechs".Mechs[slot].DeviceType <> TYPE_NONE)
                 AND ("DB_Mechs".Mechs[slot].TypedIndex <> UINT#16#FFFF);
     
     isLocal := LocalManualGlobal OR "DB_Mechs".Mechs[slot].LocalManual;
     
     // Валідація
-    rej := "DB_Const".MAN_REJ_OK;
+    rej := MAN_REJ_OK;
     
     IF NOT isMapped THEN
-        rej := "DB_Const".MAN_REJ_SLOT_UNMAPPED;
+        rej := MAN_REJ_SLOT_UNMAPPED;
         
     ELSIF isLocal THEN
-        rej := "DB_Const".MAN_REJ_LOCAL_MANUAL;
+        rej := MAN_REJ_LOCAL_MANUAL;
         
     ELSIF NOT "DB_Mechs".Mechs[slot].Enable_OK THEN
-        rej := "DB_Const".MAN_REJ_NOT_ENABLED;
+        rej := MAN_REJ_NOT_ENABLED;
         
-    ELSIF ("DB_Mechs".Mechs[slot].OwnerCur <> "DB_Const".OWNER_NONE)
-          AND ("DB_Mechs".Mechs[slot].OwnerCur <> "DB_Const".OWNER_SCADA) THEN
-        rej := "DB_Const".MAN_REJ_OWNER_BUSY;
+    ELSIF ("DB_Mechs".Mechs[slot].OwnerCur <> OWNER_NONE)
+          AND ("DB_Mechs".Mechs[slot].OwnerCur <> OWNER_SCADA) THEN
+        rej := MAN_REJ_OWNER_BUSY;
     END_IF;
     
     // Обробка ReleaseOwner
-    IF (rej = "DB_Const".MAN_REJ_OK) 
+    IF (rej = MAN_REJ_OK) 
        AND "DB_PlcScada_MailBox".Req.ReleaseOwner THEN
         
         ok := "FC_ArbiterMech"(
             LocalManualGlobal := LocalManualGlobal,
-            OwnerReq          := "DB_Const".OWNER_SCADA,
+            OwnerReq          := OWNER_SCADA,
             OwnerReqId        := UINT#0,
-            ReqCmd            := "DB_Const".CMD_NONE,
+            ReqCmd            := CMD_NONE,
             ReqParam1         := 0,
             ReleaseOwner      := TRUE,
             LockOnly          := FALSE,
@@ -110,27 +110,27 @@ BEGIN
         
         IF ok THEN
             "DB_PlcScada_MailBox".Ack.AckOk      := TRUE;
-            "DB_PlcScada_MailBox".Ack.RejectCode := "DB_Const".MAN_REJ_OK;
+            "DB_PlcScada_MailBox".Ack.RejectCode := MAN_REJ_OK;
         ELSE
             "DB_PlcScada_MailBox".Ack.AckOk      := FALSE;
-            "DB_PlcScada_MailBox".Ack.RejectCode := "DB_Const".MAN_REJ_ARBITER_FAIL;
+            "DB_PlcScada_MailBox".Ack.RejectCode := MAN_REJ_ARBITER_FAIL;
         END_IF;
         
         RETURN;
     END_IF;
     
     // Валідація команди
-    IF rej = "DB_Const".MAN_REJ_OK THEN
-        IF "DB_PlcScada_MailBox".Req.Cmd = "DB_Const".CMD_NONE THEN
-            rej := "DB_Const".MAN_REJ_CMD_INVALID;
+    IF rej = MAN_REJ_OK THEN
+        IF "DB_PlcScada_MailBox".Req.Cmd = CMD_NONE THEN
+            rej := MAN_REJ_CMD_INVALID;
         END_IF;
     END_IF;
     
     // Виконання команди
-    IF rej = "DB_Const".MAN_REJ_OK THEN
+    IF rej = MAN_REJ_OK THEN
         ok := "FC_ArbiterMech"(
             LocalManualGlobal := LocalManualGlobal,
-            OwnerReq          := "DB_Const".OWNER_SCADA,
+            OwnerReq          := OWNER_SCADA,
             OwnerReqId        := UINT#0,
             ReqCmd            := "DB_PlcScada_MailBox".Req.Cmd,
             ReqParam1         := "DB_PlcScada_MailBox".Req.Param1,
@@ -141,10 +141,10 @@ BEGIN
         
         IF ok THEN
             "DB_PlcScada_MailBox".Ack.AckOk      := TRUE;
-            "DB_PlcScada_MailBox".Ack.RejectCode := "DB_Const".MAN_REJ_OK;
+            "DB_PlcScada_MailBox".Ack.RejectCode := MAN_REJ_OK;
         ELSE
             "DB_PlcScada_MailBox".Ack.AckOk      := FALSE;
-            "DB_PlcScada_MailBox".Ack.RejectCode := "DB_Const".MAN_REJ_ARBITER_FAIL;
+            "DB_PlcScada_MailBox".Ack.RejectCode := MAN_REJ_ARBITER_FAIL;
         END_IF;
     ELSE
         "DB_PlcScada_MailBox".Ack.AckOk      := FALSE;
