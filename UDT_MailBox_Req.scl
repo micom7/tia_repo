@@ -8,5 +8,6 @@ STRUCT
     Force_Code   : INT;      // форсування захистів
     ReleaseOwner : BOOL;     // TRUE = звільнити OWNER_SCADA
     Commit       : UDINT;    // лічильник (SCADA інкрементує після запису)
+	SetForceOnly : BOOL;  	 // TRUE = тільки встановити Force_Code
 END_STRUCT;
 END_TYPE
