@@ -1,7 +1,7 @@
 // ==============================================================================
 // FC_ManualMechCmdHandler - Обробка ручних команд через MailBox
 // ==============================================================================
-// Версія: 3.1 (з підтримкою SetForceOnly)
+// Версія: 3.2 (з CMD_SET_FORCE замість SetForceOnly)
 // Дата: 2026-01-20
 // ==============================================================================
 
@@ -86,48 +86,12 @@ BEGIN
         RETURN;
     END_IF;
     
-    // =========================================================
-    // 🆕 ОПЕРАЦІЯ 1: SetForceOnly (встановлення Force_Code)
-    // =========================================================
-    IF "DB_PlcScada_MailBox".Req.SetForceOnly THEN
-        
-        // Встановити Force_Code напряму
-        "DB_Mechs".Mechs[slot].Force_Code := "DB_PlcScada_MailBox".Req.Force_Code;
-        
-        // Підтвердити успішну операцію
-        "DB_PlcScada_MailBox".Ack.AckCommit  := commitIn;
-        "DB_PlcScada_MailBox".Ack.AckOk      := TRUE;
-        "DB_PlcScada_MailBox".Ack.RejectCode := MAN_REJ_OK;
-        "DB_PlcScada_MailBox".Ack.Slot       := slot;
-        
-        RETURN;  // SetForceOnly — окрема операція, виходимо
-    END_IF;
-    
-    // =========================================================
-    // Далі — стандартна обробка команд (START/STOP/RESET)
-    // =========================================================
-    
     isLocal := LocalManualGlobal OR "DB_Mechs".Mechs[slot].LocalManual;
     
-    // Валідація для команд (не для SetForceOnly)
-    rej := MAN_REJ_OK;
-    
-    IF isLocal THEN
-        rej := MAN_REJ_LOCAL_MANUAL;
-        
-    ELSIF NOT "DB_Mechs".Mechs[slot].Enable_OK THEN
-        rej := MAN_REJ_NOT_ENABLED;
-        
-    ELSIF ("DB_Mechs".Mechs[slot].OwnerCur <> OWNER_NONE)
-          AND ("DB_Mechs".Mechs[slot].OwnerCur <> OWNER_SCADA) THEN
-        rej := MAN_REJ_OWNER_BUSY;
-    END_IF;
-    
     // =========================================================
-    // ОПЕРАЦІЯ 2: ReleaseOwner (звільнення ownership)
+    // ОПЕРАЦІЯ: ReleaseOwner (звільнення ownership)
     // =========================================================
-    IF (rej = MAN_REJ_OK) 
-       AND "DB_PlcScada_MailBox".Req.ReleaseOwner THEN
+    IF "DB_PlcScada_MailBox".Req.ReleaseOwner THEN
         
         ok := "FC_ArbiterMech"(
             LocalManualGlobal := LocalManualGlobal,
@@ -155,17 +119,52 @@ BEGIN
     END_IF;
     
     // =========================================================
-    // ОПЕРАЦІЯ 3: Виконання команди (START/STOP/RESET)
+    // ОПЕРАЦІЯ: Виконання команди (START/STOP/RESET/SET_FORCE)
     // =========================================================
     
-    // Валідація команди
-    IF rej = MAN_REJ_OK THEN
-        IF "DB_PlcScada_MailBox".Req.Cmd = CMD_NONE THEN
-            rej := MAN_REJ_CMD_INVALID;
-        END_IF;
+    // Валідація команди (CMD_NONE заборонено)
+    rej := MAN_REJ_OK;
+    
+    IF "DB_PlcScada_MailBox".Req.Cmd = CMD_NONE THEN
+        rej := MAN_REJ_CMD_INVALID;
     END_IF;
     
-    // Виконання команди через арбітр
+    // 🆕 CMD_SET_FORCE: окрема обробка (без арбітра)
+    IF (rej = MAN_REJ_OK)
+       AND ("DB_PlcScada_MailBox".Req.Cmd = CMD_SET_FORCE) THEN
+        
+        // Встановити Force_Code напряму
+        "DB_Mechs".Mechs[slot].Force_Code := "DB_PlcScada_MailBox".Req.Param1;
+        
+        // Зберегти у LastCmd (для історії)
+        "DB_Mechs".Mechs[slot].LastCmd := CMD_SET_FORCE;
+        
+        // Підтвердити успішну операцію
+        "DB_PlcScada_MailBox".Ack.AckCommit  := commitIn;
+        "DB_PlcScada_MailBox".Ack.AckOk      := TRUE;
+        "DB_PlcScada_MailBox".Ack.RejectCode := MAN_REJ_OK;
+        "DB_PlcScada_MailBox".Ack.Slot       := slot;
+        
+        RETURN;  // CMD_SET_FORCE — окрема команда, виходимо
+    END_IF;
+    
+    // Валідація для інших команд (START/STOP/RESET)
+    IF rej = MAN_REJ_OK THEN
+        
+        IF isLocal THEN
+            rej := MAN_REJ_LOCAL_MANUAL;
+            
+        ELSIF NOT "DB_Mechs".Mechs[slot].Enable_OK THEN
+            rej := MAN_REJ_NOT_ENABLED;
+            
+        ELSIF ("DB_Mechs".Mechs[slot].OwnerCur <> OWNER_NONE)
+              AND ("DB_Mechs".Mechs[slot].OwnerCur <> OWNER_SCADA) THEN
+            rej := MAN_REJ_OWNER_BUSY;
+        END_IF;
+        
+    END_IF;
+    
+    // Виконання команди через арбітр (START/STOP/RESET)
     IF rej = MAN_REJ_OK THEN
         ok := "FC_ArbiterMech"(
             LocalManualGlobal := LocalManualGlobal,
