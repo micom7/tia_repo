@@ -21,7 +21,7 @@ END_VAR
 
 VAR_TEMP
     slot : INT;
-    idx  : INT;
+    idx  : UINT;
 END_VAR
 
 BEGIN
