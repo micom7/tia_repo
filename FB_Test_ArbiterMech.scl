@@ -1,0 +1,368 @@
+// ==============================================================================
+// FB_Test_ArbiterMech - Unit tests for FC_ArbiterMech
+// ==============================================================================
+// Version: 3.2 (updated for CMD_SET_FORCE protection)
+// Date: 2026-01-27
+// ==============================================================================
+
+FUNCTION_BLOCK "FB_Test_ArbiterMech"
+{ S7_Optimized_Access := 'TRUE' }
+
+VAR_INPUT
+    Run    : BOOL;   // TRUE = execute test
+    CaseId : INT;    // test case number
+END_VAR
+
+VAR_OUTPUT
+    Passed   : BOOL;
+    Failed   : BOOL;
+    FailMask : DWORD;
+END_VAR
+
+VAR
+    M : "UDT_BaseMechanism";
+    
+    LocalManualGlobal : BOOL;
+    result : BOOL;
+    
+    Exp_Result     : BOOL;
+    Exp_OwnerCur   : USINT;
+    Exp_OwnerCurId : UINT;
+    Exp_Cmd        : USINT;
+    Exp_CmdParam1  : INT;
+END_VAR
+
+BEGIN
+    Passed := FALSE;
+    Failed := FALSE;
+    FailMask := 0;
+
+    IF NOT Run THEN
+        RETURN;
+    END_IF;
+
+    LocalManualGlobal := FALSE;
+
+    // ------------------------------------------------------------------
+    // ARRANGE - baseline "healthy" state
+    // ------------------------------------------------------------------
+    M.DeviceType := "TYPE_REDLER";
+    M.TypedIndex := 0;
+    M.Enable_OK := TRUE;
+    M.LocalManual := FALSE;
+    M.Cmd := "CMD_NONE";
+    M.CmdParam1 := 0;
+    M.Force_Code := 0;
+    M.OwnerCur := "OWNER_NONE";
+    M.OwnerCurId := 0;
+    M.LastCmd := "CMD_NONE";
+    M.FLTCode := "FLT_NONE";
+    M.Status := "STS_IDLE";
+
+    Exp_Result := FALSE;
+    Exp_OwnerCur := M.OwnerCur;
+    Exp_OwnerCurId := M.OwnerCurId;
+    Exp_Cmd := M.Cmd;
+    Exp_CmdParam1 := M.CmdParam1;
+
+    // ------------------------------------------------------------------
+    // TEST CASES
+    // ------------------------------------------------------------------
+    CASE CaseId OF
+        // ============================================================
+        // GROUP A: Basic ownership and commands
+        // ============================================================
+        
+        // A1: Lock OK (owner free)
+        1:
+            Exp_Result := TRUE;
+            Exp_OwnerCur := "OWNER_SCADA";
+            Exp_OwnerCurId := 0;
+
+        // A2: CMD_START OK (owner NONE → SCADA, Cmd written)
+        2:
+            Exp_Result := TRUE;
+            Exp_OwnerCur := "OWNER_SCADA";
+            Exp_OwnerCurId := 0;
+            Exp_Cmd := "CMD_START";
+            Exp_CmdParam1 := 7;
+
+        // A3: CMD_NONE blocked (not ReleaseOwner, not LockOnly)
+        3:
+            Exp_Result := FALSE;
+            Exp_OwnerCur := "OWNER_NONE";  // не змінюється
+
+        // A4: LocalManual blocks everything
+        4:
+            M.LocalManual := TRUE;
+            Exp_Result := FALSE;
+
+        // A5: Owner busy (ROUTE) blocks SCADA
+        5:
+            M.OwnerCur := "OWNER_ROUTE";
+            M.OwnerCurId := 1;
+            Exp_Result := FALSE;
+            Exp_OwnerCur := "OWNER_ROUTE";  // залишається
+            Exp_OwnerCurId := 1;
+
+        // A6: ReleaseOwner OK (owner matches)
+        6:
+            M.OwnerCur := "OWNER_SCADA";
+            M.OwnerCurId := 0;
+            Exp_Result := TRUE;
+            Exp_OwnerCur := "OWNER_NONE";  // звільнено
+            Exp_OwnerCurId := 0;
+
+        // A7: ReleaseOwner FAIL (owner mismatch)
+        7:
+            M.OwnerCur := "OWNER_SCADA";
+            M.OwnerCurId := 9;  // не співпадає з OwnerReqId=0
+            Exp_Result := FALSE;
+            Exp_OwnerCur := "OWNER_SCADA";  // залишається
+            Exp_OwnerCurId := 9;
+
+        // ============================================================
+        // GROUP B: CMD_SET_FORCE protection (🆕 v3.2)
+        // ============================================================
+        
+        // B1: CMD_SET_FORCE blocked (owner free)
+        8:
+            Exp_Result := FALSE;
+            Exp_OwnerCur := "OWNER_NONE";  // НЕ змінюється
+            Exp_Cmd := "CMD_NONE";          // НЕ записується
+
+        // B2: CMD_SET_FORCE blocked (owner SCADA)
+        9:
+            M.OwnerCur := "OWNER_SCADA";
+            M.OwnerCurId := 0;
+            Exp_Result := FALSE;
+            Exp_OwnerCur := "OWNER_SCADA";  // залишається
+            Exp_Cmd := "CMD_NONE";           // НЕ записується
+
+        // B3: CMD_SET_FORCE blocked (LockOnly=TRUE)
+        10:
+            Exp_Result := FALSE;
+            Exp_OwnerCur := "OWNER_NONE";
+
+        // B4: CMD_SET_FORCE blocked (unmapped slot)
+        11:
+            M.DeviceType := "TYPE_NONE";
+            M.TypedIndex := UINT#16#FFFF;
+            Exp_Result := FALSE;
+
+        // ============================================================
+        // GROUP C: Unmapped slot protection
+        // ============================================================
+        
+        // C1: Unmapped slot blocks all (CMD_START)
+        12:
+            M.DeviceType := "TYPE_NONE";
+            M.TypedIndex := UINT#16#FFFF;
+            Exp_Result := FALSE;
+
+        // C2: Unmapped slot blocks LockOnly
+        13:
+            M.DeviceType := "TYPE_NONE";
+            M.TypedIndex := UINT#16#FFFF;
+            Exp_Result := FALSE;
+
+        ELSE
+            RETURN;
+    END_CASE;
+
+    // ------------------------------------------------------------------
+    // ACT
+    // ------------------------------------------------------------------
+    CASE CaseId OF
+        // GROUP A
+        1:  // Lock OK
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_NONE",
+                ReqParam1         := 0,
+                ReleaseOwner      := FALSE,
+                LockOnly          := TRUE,
+                M                 := M
+            );
+
+        2:  // CMD_START OK
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_START",
+                ReqParam1         := 7,
+                ReleaseOwner      := FALSE,
+                LockOnly          := FALSE,
+                M                 := M
+            );
+
+        3:  // CMD_NONE blocked
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_NONE",
+                ReqParam1         := 0,
+                ReleaseOwner      := FALSE,
+                LockOnly          := FALSE,
+                M                 := M
+            );
+
+        4:  // LocalManual blocks
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_START",
+                ReqParam1         := 0,
+                ReleaseOwner      := FALSE,
+                LockOnly          := FALSE,
+                M                 := M
+            );
+
+        5:  // Owner busy blocks
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_START",
+                ReqParam1         := 0,
+                ReleaseOwner      := FALSE,
+                LockOnly          := FALSE,
+                M                 := M
+            );
+
+        6:  // ReleaseOwner OK
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_NONE",
+                ReqParam1         := 0,
+                ReleaseOwner      := TRUE,
+                LockOnly          := FALSE,
+                M                 := M
+            );
+
+        7:  // ReleaseOwner FAIL
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_NONE",
+                ReqParam1         := 0,
+                ReleaseOwner      := TRUE,
+                LockOnly          := FALSE,
+                M                 := M
+            );
+
+        // GROUP B: CMD_SET_FORCE protection
+        8:  // CMD_SET_FORCE blocked (owner free)
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_SET_FORCE",
+                ReqParam1         := 2,
+                ReleaseOwner      := FALSE,
+                LockOnly          := FALSE,
+                M                 := M
+            );
+
+        9:  // CMD_SET_FORCE blocked (owner SCADA)
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_SET_FORCE",
+                ReqParam1         := 2,
+                ReleaseOwner      := FALSE,
+                LockOnly          := FALSE,
+                M                 := M
+            );
+
+        10:  // CMD_SET_FORCE blocked (LockOnly)
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_SET_FORCE",
+                ReqParam1         := 2,
+                ReleaseOwner      := FALSE,
+                LockOnly          := TRUE,
+                M                 := M
+            );
+
+        11:  // CMD_SET_FORCE blocked (unmapped)
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_SET_FORCE",
+                ReqParam1         := 2,
+                ReleaseOwner      := FALSE,
+                LockOnly          := FALSE,
+                M                 := M
+            );
+
+        // GROUP C: Unmapped slot
+        12:  // Unmapped blocks START
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_START",
+                ReqParam1         := 0,
+                ReleaseOwner      := FALSE,
+                LockOnly          := FALSE,
+                M                 := M
+            );
+
+        13:  // Unmapped blocks LockOnly
+            result := "FC_ArbiterMech"(
+                LocalManualGlobal := LocalManualGlobal,
+                OwnerReq          := "OWNER_SCADA",
+                OwnerReqId        := UINT#0,
+                ReqCmd            := "CMD_NONE",
+                ReqParam1         := 0,
+                ReleaseOwner      := FALSE,
+                LockOnly          := TRUE,
+                M                 := M
+            );
+
+        ELSE
+            RETURN;
+    END_CASE;
+
+    // ------------------------------------------------------------------
+    // ASSERT
+    // ------------------------------------------------------------------
+    
+    // Check result
+    IF result <> Exp_Result THEN
+        FailMask := FailMask OR 16#0001;
+    END_IF;
+
+    // Check Owner
+    IF M.OwnerCur <> Exp_OwnerCur THEN
+        FailMask := FailMask OR 16#0002;
+    END_IF;
+    IF M.OwnerCurId <> Exp_OwnerCurId THEN
+        FailMask := FailMask OR 16#0004;
+    END_IF;
+
+    // Check Cmd
+    IF M.Cmd <> Exp_Cmd THEN
+        FailMask := FailMask OR 16#0008;
+    END_IF;
+    IF M.CmdParam1 <> Exp_CmdParam1 THEN
+        FailMask := FailMask OR 16#0010;
+    END_IF;
+
+    Failed := (FailMask <> 0);
+    Passed := NOT Failed;
+    
+END_FUNCTION_BLOCK

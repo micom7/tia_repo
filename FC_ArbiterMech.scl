@@ -26,25 +26,59 @@ END_VAR
 
 BEGIN
 
-	// Якщо слот не замаплений — не даємо ні lock, ні команд
-	IF (M.DeviceType = TYPE_NONE) OR (M.TypedIndex = UINT#16#FFFF) THEN
-		FC_ArbiterMech := FALSE;
-		RETURN;
-	END_IF;
+    // =========================================================
+    // КРИТИЧНА ПЕРЕВІРКА: CMD_SET_FORCE НЕ ПОВИНЕН ЙТИ ЧЕРЕЗ АРБІТР
+    // =========================================================
+    IF ReqCmd = CMD_SET_FORCE THEN
+        // CMD_SET_FORCE обробляється в FC_ManualMechCmdHandler напряму
+        // Якщо ми тут - це помилка виклику
+        FC_ArbiterMech := FALSE;
+        RETURN;
+    END_IF;
+
+    // =========================================================
+    // БАЗОВА ПЕРЕВІРКА: Слот має бути замаплений
+    // =========================================================
+    IF (M.DeviceType = TYPE_NONE) OR (M.TypedIndex = UINT#16#FFFF) THEN
+        FC_ArbiterMech := FALSE;
+        RETURN;
+    END_IF;
 
     allowExec := TRUE;
 
-    // Local manual => PLC не керує і не “бронює”
+    // =========================================================
+    // LocalManual має вищий пріоритет
+    // =========================================================
     isLocal := LocalManualGlobal OR M.LocalManual;
     IF isLocal THEN
         allowExec := FALSE;
     END_IF;
 
-    // ---------------- ReleaseOwner ----------------
+    // =========================================================
+    // ReleaseOwner (звільнення ownership)
+    // =========================================================
     IF allowExec AND ReleaseOwner THEN
         okOwner := (M.OwnerCur = OwnerReq) AND (M.OwnerCurId = OwnerReqId);
 
         IF NOT okOwner THEN
+            allowExec := FALSE;
+        END_IF;
+
+        // =========================================================
+        // КРИТИЧНА ПЕРЕВІРКА: Механізм має бути в IDLE
+        // =========================================================
+        // Заборонено звільняти owner поки механізм працює.
+        // Причини:
+        //   1. Безпека: механізм завжди має відповідального власника
+        //   2. Передбачуваність: release = "я закінчив роботу"
+        //   3. Запобігання orphan processes (механізм без owner)
+        //
+        // Правильний workflow:
+        //   1. CMD_START → механізм працює
+        //   2. CMD_STOP → чекаємо STS_IDLE
+        //   3. CMD_RELEASE_OWNER → тепер можна звільнити
+        // =========================================================
+        IF allowExec AND (M.Status <> STS_IDLE) THEN
             allowExec := FALSE;
         END_IF;
 
@@ -53,23 +87,25 @@ BEGIN
             M.OwnerCurId := 0;
         END_IF;
 
-    // ---------------- LockOnly or Command ----------------
+    // =========================================================
+    // LockOnly or Command (захват owner та/або виконання команди)
+    // =========================================================
     ELSIF allowExec THEN
 
-        // Якщо owner NONE — можемо взяти
+        // Захват owner (якщо він вільний)
         IF (M.OwnerCur = OWNER_NONE)
            AND (OwnerReq <> OWNER_NONE) THEN
             M.OwnerCur   := OwnerReq;
             M.OwnerCurId := OwnerReqId;
         END_IF;
 
-        // Перевірка owner
+        // Перевірка ownership
         okOwner := (M.OwnerCur = OwnerReq) AND (M.OwnerCurId = OwnerReqId);
         IF NOT okOwner THEN
             allowExec := FALSE;
         END_IF;
 
-        // Якщо це не LockOnly — тоді ще й команда
+        // Виконання команди (якщо не LockOnly)
         IF allowExec AND (NOT LockOnly) THEN
             IF ReqCmd = CMD_NONE THEN
                 allowExec := FALSE;

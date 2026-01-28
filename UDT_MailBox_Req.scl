@@ -3,10 +3,8 @@
 TYPE "UDT_MailBox_Req" :
 STRUCT
     Slot         : UINT;     // цільовий слот (0..255)
-    Cmd          : USINT;    // CMD_START / CMD_STOP / CMD_RESET
+    Cmd          : USINT;    // CMD_START / CMD_STOP / CMD_RESET /  CMD_FORCE
     Param1       : INT;      // параметр команди / форсування захистів
-    ReleaseOwner : BOOL;     // TRUE = звільнити OWNER_SCADA
     Commit       : UDINT;    // лічильник (SCADA інкрементує після запису)
-	SetForceOnly : BOOL;  	 // TRUE = тільки встановити Force_Code
 END_STRUCT;
 END_TYPE
