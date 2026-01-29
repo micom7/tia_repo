@@ -1,4 +1,4 @@
-﻿FUNCTION "FC_Noria" : Void
+FUNCTION "FC_Noria" : Void
 { S7_Optimized_Access := 'TRUE' }
 VERSION : 0.1
    VAR_IN_OUT 
@@ -58,6 +58,9 @@ BEGIN
 	        #B.OwnerCurId := 0;
 	        #N.StartMs := 0;
 	        #N.SpeedLostMs := 0;
+	    ELSIF (#B.Status = "STS_DISABLED") OR (#B.Status = "STS_LOCAL") THEN
+	        // Автоматичний вихід з DISABLED/LOCAL при знятті блокувань
+	        #B.Status := "STS_IDLE";
 	    END_IF;
 	    
 	    #isBlocked := (#B.Status = "STS_DISABLED") OR (#B.Status = "STS_LOCAL");
@@ -159,7 +162,7 @@ BEGIN
 	    END_IF;
 	END_REGION
 	
-	
+
 	REGION "7) Формування виходу DO_Run"
 	    // DO_Run — похідний від фінального Status.
 	    // У FAULT / DISABLED / LOCAL -> FALSE автоматично.
@@ -169,6 +172,5 @@ BEGIN
 	        #N.DO_Run := FALSE;
 	    END_IF;
 	END_REGION
-	
-END_FUNCTION
 
+END_FUNCTION
